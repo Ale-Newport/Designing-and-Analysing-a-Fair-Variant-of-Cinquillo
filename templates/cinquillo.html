@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cinquillo 2.0 - Python Engine</title>
+  <style>
+    :root {
+      --bg-cream: #f5f0e6;
+      --bg-table: #2d5a3d;
+      --text-dark: #2c1810;
+      --text-light: #f5f0e6;
+      --border-wood: #8b4513;
+      --gold-accent: #c9a227;
+      
+      --oros: #b45309;
+      --copas: #b91c1c;
+      --espadas: #0f766e;
+      --bastos: #1d4ed8;
+      
+      --card-w: 50px;
+      --card-h: 70px;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-cream);
+      color: var(--text-dark);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, var(--border-wood) 0%, #6b3410 100%);
+      color: var(--text-light);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    
+    .header h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+    
+    .header-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    
+    .btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #4a7c59;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #3d6649;
+    }
+    
+    .btn:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+    }
+    
+    /* Main Layout */
+    .main-container {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+    }
+    
+    /* Sidebar */
+    .sidebar {
+      width: 200px;
+      background: linear-gradient(180deg, #faf7f0 0%, #f0ebe0 100%);
+      border-right: 2px solid var(--border-wood);
+      padding: 12px;
+      overflow-y: auto;
+    }
+    
+    .panel-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--border-wood);
+      border-bottom: 2px solid var(--border-wood);
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+    
+    .player-card {
+      background: white;
+      border-radius: 6px;
+      padding: 8px;
+      margin-bottom: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+      border-left: 3px solid var(--border-wood);
+    }
+    
+    .player-card.active {
+      border-left-color: var(--gold-accent);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    
+    .player-card.human {
+      border-left-color: var(--oros);
+    }
+    
+    .player-name {
+      font-weight: 700;
+      font-size: 0.8rem;
+      margin-bottom: 4px;
+    }
+    
+    .player-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      font-size: 0.7rem;
+    }
+    
+    .stat {
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .stat-label {
+      color: #666;
+    }
+    
+    .stat-value {
+      font-weight: 600;
+    }
+    
+/* Game Area */
+    .game-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      overflow: hidden;
+    }
+    
+    .status-bar {
+      background: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      font-size: 0.9rem;
+    }
+    
+    .board {
+      flex: 1;
+      background: var(--bg-table);
+      border-radius: 8px;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+      overflow-y: auto;
+    }
+    
+    .pile {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .pile-title {
+      color: var(--text-light);
+      font-weight: 700;
+      font-size: 0.8rem;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    
+    .pile-slots {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+    
+    .pile-slot {
+      width: var(--card-w);
+      height: var(--card-h);
+      border: 2px dashed rgba(255,255,255,0.0);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .pile-slot:not(:first-child) {
+      margin-top: calc(var(--card-h) * -0.3);
+    }
+    
+    .pile-slot.five-slot {
+      border: 2px dashed rgba(255,255,255,0.3);
+    }
+    
+    /* Cards */
+    .card {
+      width: var(--card-w);
+      height: var(--card-h);
+      background: white;
+      border-radius: 4px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 4px;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    
+    .card.playable {
+      cursor: pointer;
+      box-shadow: 0 0 0 2px var(--gold-accent), 0 4px 12px rgba(201, 162, 39, 0.6);
+    }
+    
+    .card.playable:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 0 0 2px var(--gold-accent), 0 6px 16px rgba(201, 162, 39, 0.7);
+    }
+    
+    .card.wild-playable {
+      box-shadow: 0 0 0 2px #ec4899, 0 4px 12px rgba(236, 72, 153, 0.6);
+    }
+    
+    .card.oros { color: var(--oros); }
+    .card.copas { color: var(--copas); }
+    .card.espadas { color: var(--espadas); }
+    .card.bastos { color: var(--bastos); }
+    
+    .card-rank {
+      font-size: 0.8rem;
+    }
+    
+    .card-suit-symbol {
+      text-align: center;
+      font-size: 1.2rem;
+    }
+    
+    /* Hand Area */
+    .hand-area {
+      background: white;
+      padding: 12px;
+      border-radius: 6px;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .hand-title {
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .hand-cards {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 12px;
+    }
+    
+    /* Modal */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    
+    .modal.show {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: white;
+      padding: 0;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 85vh;
+      overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 2px solid var(--border-wood);
+      background: linear-gradient(135deg, #f9f7f0 0%, #f0ebe0 100%);
+    }
+    
+    .modal-body {
+      padding: 20px 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    
+    .modal-body::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .modal-body::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+    
+    .modal-body::-webkit-scrollbar-thumb {
+      background: var(--border-wood);
+      border-radius: 4px;
+    }
+    
+    .modal-body::-webkit-scrollbar-thumb:hover {
+      background: #6b3410;
+    }
+    
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid #e5e5e5;
+      background: #fafafa;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    
+    .modal-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin: 0;
+      text-align: center;
+      color: var(--text-dark);
+    }
+    
+    .config-section {
+      margin-bottom: 16px;
+    }
+    
+    .config-section h3 {
+      font-size: 1rem;
+      margin-bottom: 8px;
+      color: var(--border-wood);
+    }
+    
+    .config-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding: 6px;
+      background: #f9f9f9;
+      border-radius: 4px;
+    }
+    
+    .config-row label {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    
+    .config-row select,
+    .config-row input[type="number"] {
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1>🃏 Cinquillo 2.0</h1>
+    <div class="header-controls">
+      <button class="btn btn-primary" onclick="showConfigModal()">New Match</button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="main-container">
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <div class="panel-title">Players</div>
+      <div id="players-list"></div>
+      
+      <div class="panel-title" style="margin-top: 16px;">Match Info</div>
+      <div id="match-info" style="font-size: 0.75rem; line-height: 1.5;"></div>
+      
+      <!-- Debug Panel -->
+      <div id="debug-panel" style="display: none; margin-top: 16px; padding-top: 12px; border-top: 2px solid var(--border-wood);">
+        <h3 style="font-size: 0.85rem; color: #d97706; margin-bottom: 8px;">🔍 Debug Info</h3>
+        <div id="debug-content" style="font-size: 0.7rem; line-height: 1.4; max-height: 200px; overflow-y: auto; background: #fff; padding: 6px; border-radius: 4px;"></div>
+      </div>
+    </aside>
+
+    <!-- Game Area -->
+    <main class="game-area">
+      <div class="status-bar" id="status">Click "New Match" to start!</div>
+      
+      <div class="board" id="board"></div>
+      
+      <div class="hand-area">
+        <div class="hand-title">
+          <span>Your Hand</span>
+          <span id="hand-hint" style="font-size: 0.8rem; color: #666;"></span>
+        </div>
+        <div class="hand-cards" id="hand-cards"></div>
+        <div class="controls" id="controls">
+          <button class="btn btn-primary" id="pass-btn" onclick="makeMove('pass')" disabled>⏭ Pass</button>
+          <button class="btn btn-primary" id="roll-btn" onclick="makeMove('roll_dice')" disabled>🎲 Roll Dice</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Configuration Modal -->
+  <div class="modal" id="config-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">New Match Configuration</h2>
+      </div>
+      
+      <div class="modal-body">
+        <div class="config-section">
+          <h3>Game Settings</h3>
+          <div class="config-row">
+            <label>Players:</label>
+            <select id="num-players" onchange="updateAgentSelectors(); updateStartingPlayerSelector();">
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4" selected>4</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <label>Starting Player (Round 1):</label>
+            <select id="starting-player">
+              <option value="0" selected>Player 1 (You)</option>
+              <option value="1">Player 2</option>
+              <option value="2">Player 3</option>
+              <option value="3">Player 4</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <label>Bot Move Delay:</label>
+            <select id="bot-delay">
+              <option value="0">Instant</option>
+              <option value="300">Fast (300ms)</option>
+              <option value="500" selected>Normal (500ms)</option>
+              <option value="1000">Slow (1s)</option>
+              <option value="2000">Very Slow (2s)</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <label>
+              <input type="checkbox" id="debug-mode" style="width: auto; margin-right: 8px;">
+              Debug Mode (See all cards & AI decisions)
+            </label>
+          </div>
+        </div>
+        
+        <div class="config-section">
+          <h3>Agent Selection</h3>
+          <div id="agent-selectors">
+            <!-- Agent selectors will be dynamically generated -->
+          </div>
+        </div>
+        
+        <div class="config-section">
+          <h3>Dice System</h3>
+          <div class="config-row">
+            <label>Good Outcome Probability:</label>
+            <input type="number" id="dice-good-prob" value="0.5" min="0" max="1" step="0.1" style="width: 70px;">
+          </div>
+          <div class="config-row">
+            <label>Good Effect:</label>
+            <select id="dice-good-effect">
+              <option value="WILD" selected>Wild Card</option>
+              <option value="DOUBLE_PLAY">Double Play</option>
+              <option value="GIVE_CARD">Give Card</option>
+              <option value="INFO_REVEAL">Info Reveal</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <label>Bad Effect:</label>
+            <select id="dice-bad-effect">
+              <option value="TAKE_CARDS" selected>Take Cards</option>
+              <option value="NEGATIVE_POINTS">Negative Points</option>
+              <option value="FORCED_PASS">Forced Pass</option>
+              <option value="REVEAL_HAND">Reveal Hand</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <label>Cards to Take (if Take Cards):</label>
+            <input type="number" id="dice-bad-cards" value="2" min="1" max="5" style="width: 70px;">
+          </div>
+        </div>
+        
+        <div class="config-section">
+          <h3>Scoring System</h3>
+          <div class="config-row">
+            <label>Mode:</label>
+            <select id="scoring-mode">
+              <option value="WINNER_TAKES_ALL" selected>Winner Takes All</option>
+              <option value="DOUBLE_PENALTY">Double Penalty</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <label>Points Per Card:</label>
+            <input type="number" id="points-per-card" value="1" min="1" max="5" style="width: 70px;">
+          </div>
+          <div class="config-row">
+            <label>Voluntary Pass Penalty:</label>
+            <input type="number" id="voluntary-pass-penalty" value="1" min="0" max="5" style="width: 70px;">
+          </div>
+        </div>
+        
+        <div class="config-section">
+          <h3>Match End</h3>
+          <div class="config-row">
+            <label>Mode:</label>
+            <select id="match-end-mode">
+              <option value="TARGET_SCORE" selected>Target Score</option>
+              <option value="FIXED_ROUNDS">Fixed Rounds</option>
+            </select>
+          </div>
+          <div class="config-row">
+            <label>Target Multiplier (×Players):</label>
+            <input type="number" id="target-multiplier" value="10" min="5" max="20" style="width: 70px;">
+          </div>
+          <div class="config-row">
+            <label>Fixed Rounds Count:</label>
+            <input type="number" id="fixed-rounds" value="5" min="1" max="10" style="width: 70px;">
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="startNewMatch()">Start Match</button>
+        <button class="btn" onclick="hideConfigModal()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Round End Modal -->
+  <div class="modal" id="round-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Round Complete!</h2>
+      </div>
+      <div class="modal-body">
+        <div id="round-result" style="text-align: center;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="nextRound()">Next Round</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Match End Modal -->
+  <div class="modal" id="match-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">🏆 Match Complete!</h2>
+      </div>
+      <div class="modal-body">
+        <div id="match-result" style="text-align: center;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="showConfigModal()">New Match</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let matchId = null;
+    let gameState = null;
+    let matchInfo = null;
+    
+    const SUIT_SYMBOLS = {
+      'Oros': '♦',
+      'Copas': '♥',
+      'Espadas': '♠',
+      'Bastos': '♣'
+    };
+    
+    const SUIT_CLASSES = {
+      'Oros': 'oros',
+      'Copas': 'copas',
+      'Espadas': 'espadas',
+      'Bastos': 'bastos'
+    };
+    
+    const RANKS = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
+    
+    function showConfigModal() {
+      document.getElementById('config-modal').classList.add('show');
+      updateAgentSelectors();  // Initialize agent selectors
+      updateStartingPlayerSelector();  // Initialize starting player selector
+    }
+    
+    function updateStartingPlayerSelector() {
+      const numPlayers = parseInt(document.getElementById('num-players').value);
+      const selector = document.getElementById('starting-player');
+      selector.innerHTML = '';
+      
+      for (let i = 0; i < numPlayers; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i === 0 ? `Player ${i + 1} (You)` : `Player ${i + 1}`;
+        if (i === 0) option.selected = true;
+        selector.appendChild(option);
+      }
+    }
+    
+    function updateAgentSelectors() {
+      const numPlayers = parseInt(document.getElementById('num-players').value);
+      const container = document.getElementById('agent-selectors');
+      container.innerHTML = '';
+      
+      for (let i = 0; i < numPlayers; i++) {
+        const row = document.createElement('div');
+        row.className = 'config-row';
+        
+        if (i === 0) {
+          row.innerHTML = `
+            <label>Player ${i + 1}:</label>
+            <span style="color: #4a7c59; font-weight: 600;">Human (You)</span>
+          `;
+        } else {
+          row.innerHTML = `
+            <label>Player ${i + 1}:</label>
+            <select id="agent-${i}" style="flex: 1;">
+              <option value="balanced" selected>Balanced Heuristic</option>
+              <option value="aggressive">Aggressive Heuristic</option>
+              <option value="defensive">Defensive Heuristic</option>
+              <option value="mcts">MCTS Agent</option>
+              <option value="rl">RL Agent</option>
+              <option value="random">Random Agent</option>
+            </select>
+          `;
+        }
+        
+        container.appendChild(row);
+      }
+    }
+    
+    function hideConfigModal() {
+      document.getElementById('config-modal').classList.remove('show');
+    }
+    
+    async function startNewMatch() {
+      const numPlayers = parseInt(document.getElementById('num-players').value);
+      const debugMode = document.getElementById('debug-mode').checked;
+      const startingPlayer = parseInt(document.getElementById('starting-player').value);
+      const botDelay = parseInt(document.getElementById('bot-delay').value);
+      
+      // Store bot delay globally
+      window.botMoveDelay = botDelay;
+      
+      // Collect agent types
+      const agentTypes = {};
+      for (let i = 0; i < numPlayers; i++) {
+        if (i !== 0) {  // Skip human player (always position 0)
+          const selector = document.getElementById(`agent-${i}`);
+          if (selector) {
+            agentTypes[i] = selector.value;
+          }
+        }
+      }
+      
+      const config = {
+        num_players: numPlayers,
+        human_player: 0,
+        debug_mode: debugMode,
+        starting_player: startingPlayer,
+        agent_types: agentTypes,
+        variant: {
+          dice_good_probability: parseFloat(document.getElementById('dice-good-prob').value),
+          dice_good_effect: document.getElementById('dice-good-effect').value,
+          dice_bad_effect: document.getElementById('dice-bad-effect').value,
+          dice_bad_cards_count: parseInt(document.getElementById('dice-bad-cards').value),
+          scoring_mode: document.getElementById('scoring-mode').value,
+          points_per_card: parseInt(document.getElementById('points-per-card').value),
+          voluntary_pass_penalty: parseInt(document.getElementById('voluntary-pass-penalty').value),
+          match_end_mode: document.getElementById('match-end-mode').value,
+          target_score_multiplier: parseInt(document.getElementById('target-multiplier').value),
+          fixed_rounds_count: parseInt(document.getElementById('fixed-rounds').value)
+        }
+      };
+      
+      const response = await fetch('/api/new_match', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(config)
+      });
+      
+      const data = await response.json();
+      matchId = data.match_id;
+      gameState = data.state;
+      matchInfo = data.match_info;
+      
+      // Initialize debug log
+      if (debugMode) {
+        document.getElementById('debug-content').innerHTML = '';
+        addDebugLog('🔍 Debug mode enabled - showing all cards and moves');
+        addDebugLog(`Match started with ${numPlayers} players`);
+        addDebugLog(`Starting player: Player ${startingPlayer + 1}`);
+        addDebugLog(`Current player in state: Player ${gameState.current_player + 1}`);
+        addDebugLog(`Bot move delay: ${botDelay}ms`);
+      }
+      
+      hideConfigModal();
+      render();
+      
+      // Process initial bot moves if needed (with delay)
+      if (gameState.current_player !== 0) {
+        await processBotMovesWithDelay();
+      }
+    }
+    
+    async function makeMove(type, moveData = {}) {
+      // Store old round score to detect penalty
+      const oldRoundScore = gameState ? gameState.players[0].round_score : 0;
+      
+      // Log human move in debug mode (initial log)
+      if (gameState && gameState.debug_mode) {
+        let moveDesc = `Human (Player 1): ${type}`;
+        if (moveData.suit) {
+          moveDesc = `Human (Player 1) played ${moveData.rank}${SUIT_SYMBOLS[moveData.suit]}`;
+          addDebugLog(moveDesc);
+        } else if (type === 'roll_dice') {
+          addDebugLog('Human (Player 1) rolled dice');
+        }
+        // For pass, we'll log after we know if penalty was applied
+      }
+      
+      const response = await fetch('/api/make_move', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          match_id: matchId,
+          move_type: type,
+          move_data: moveData
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.round_over) {
+        handleRoundEnd(data);
+      } else {
+        gameState = data.state;
+        matchInfo = data.match_info;
+        
+        // Log pass move AFTER we get the result
+        if (type === 'pass' && gameState.debug_mode) {
+          const newRoundScore = gameState.players[0].round_score;
+          const penalty = newRoundScore - oldRoundScore;
+          if (penalty < 0) {
+            addDebugLog(`Human (Player 1) passed (voluntary, ${penalty} penalty)`);
+          } else {
+            addDebugLog(`Human (Player 1) passed (forced, no penalty)`);
+          }
+        }
+        
+        render();
+        
+        // Process bot moves one at a time with delay
+        if (gameState.current_player !== 0 && !gameState.game_over) {
+          await processBotMovesWithDelay();
+        }
+      }
+    }
+    
+    async function processBotMovesWithDelay() {
+      const delay = window.botMoveDelay || 500;
+      
+      while (!gameState.game_over && gameState.current_player !== 0) {
+        // Wait before making the move (so user can see the state)
+        if (delay > 0) {
+          await sleep(delay);
+        }
+        
+        // Make one bot move
+        const response = await fetch('/api/bot_move', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ match_id: matchId })
+        });
+        
+        const data = await response.json();
+        
+        // Log the move in debug mode
+        if (data.move_info && gameState.debug_mode) {
+          addDebugLog(`${data.move_info.move_description} [${data.move_info.agent_type}]`);
+        }
+        
+        if (data.round_over) {
+          gameState = data.state;
+          matchInfo = data.match_info;
+          render();
+          handleRoundEnd(data);
+          return;
+        }
+        
+        gameState = data.state;
+        matchInfo = data.match_info;
+        render();
+        
+        // CRITICAL: Check game_over in the NEW state before continuing loop
+        if (gameState.game_over) {
+          break;
+        }
+      }
+    }
+    
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+    function addDebugLog(message) {
+      const debugContent = document.getElementById('debug-content');
+      if (!debugContent) return;
+      
+      const timestamp = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.style.marginBottom = '4px';
+      entry.style.paddingBottom = '4px';
+      entry.style.borderBottom = '1px solid #f3f4f6';
+      entry.innerHTML = `<span style="color: #6b7280;">[${timestamp}]</span> ${message}`;
+      
+      debugContent.insertBefore(entry, debugContent.firstChild);
+      
+      // Keep only last 20 entries
+      while (debugContent.children.length > 20) {
+        debugContent.removeChild(debugContent.lastChild);
+      }
+    }
+    
+    function playCard(suit, rank) {
+      makeMove('play_card', {suit, rank});
+    }
+    
+    function handleRoundEnd(data) {
+      gameState = data.state;
+      matchInfo = data.match_info;
+      
+      if (data.match_over) {
+        document.getElementById('match-result').innerHTML = `
+          <p style="font-size: 1.2rem; margin-bottom: 12px;">Winner: Player ${data.match_winner + 1}</p>
+          <p>Final Scores: ${data.final_scores.join(', ')}</p>
+        `;
+        document.getElementById('match-modal').classList.add('show');
+      } else {
+        document.getElementById('round-result').innerHTML = `
+          <p>Round ${matchInfo.round} complete!</p>
+          <p>Current Scores: ${matchInfo.match_scores.join(', ')}</p>
+        `;
+        document.getElementById('round-modal').classList.add('show');
+      }
+    }
+    
+    async function nextRound() {
+      document.getElementById('round-modal').classList.remove('show');
+      
+      const response = await fetch('/api/next_round', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({match_id: matchId})
+      });
+      
+      const data = await response.json();
+      gameState = data.state;
+      matchInfo = data.match_info;
+      
+      // Log round start in debug mode
+      if (gameState.debug_mode) {
+        addDebugLog(`--- Round ${gameState.round_number} started ---`);
+        addDebugLog(`Starting player: Player ${gameState.current_player + 1}`);
+      }
+      
+      render();
+      
+      // Process bot moves if needed (with delay)
+      if (gameState.current_player !== 0 && !gameState.game_over) {
+        await processBotMovesWithDelay();
+      }
+    }
+    
+    function render() {
+      if (!gameState) return;
+      
+      renderPlayers();
+      renderMatchInfo();
+      renderBoard();
+      renderHand();
+      renderControls();
+      updateStatus();
+      
+      // Show/hide debug panel
+      const debugPanel = document.getElementById('debug-panel');
+      if (gameState.debug_mode) {
+        debugPanel.style.display = 'block';
+      } else {
+        debugPanel.style.display = 'none';
+      }
+    }
+    
+    function renderPlayers() {
+      const container = document.getElementById('players-list');
+      container.innerHTML = '';
+      const debugMode = gameState.debug_mode || false;
+      
+      gameState.players.forEach(player => {
+        const isActive = player.index === gameState.current_player;
+        const isHuman = player.index === 0;
+        
+        const div = document.createElement('div');
+        div.className = `player-card${isActive ? ' active' : ''}${isHuman ? ' human' : ''}`;
+        
+        let handHTML = '';
+        if (debugMode && player.hand) {
+          // Show all cards in debug mode
+          handHTML = '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #ddd;">';
+          handHTML += '<div style="font-size: 0.75rem; font-weight: 600; margin-bottom: 4px;">Hand:</div>';
+          handHTML += '<div style="display: flex; flex-wrap: wrap; gap: 2px;">';
+          player.hand.forEach(card => {
+            const suit = card.suit;
+            const suitClass = SUIT_CLASSES[suit];
+            handHTML += `<span class="debug-card ${suitClass}" style="font-size: 0.7rem; padding: 2px 4px; border-radius: 3px; background: white; border: 1px solid #ccc;">${card.rank}${SUIT_SYMBOLS[suit]}</span>`;
+          });
+          handHTML += '</div></div>';
+        }
+        
+        div.innerHTML = `
+          <div class="player-name">Player ${player.index + 1}${isHuman ? ' (You)' : ''}</div>
+          <div class="player-stats">
+            <div class="stat">
+              <span class="stat-label">Cards:</span>
+              <span class="stat-value">${player.hand_size}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Round:</span>
+              <span class="stat-value">${player.round_score}</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Match:</span>
+              <span class="stat-value">${player.match_score}</span>
+            </div>
+          </div>
+          ${handHTML}
+        `;
+        container.appendChild(div);
+      });
+    }
+    
+    function renderMatchInfo() {
+      const container = document.getElementById('match-info');
+      let html = `Round: ${matchInfo.round}<br>`;
+      
+      if (matchInfo.target) {
+        html += `Target: ${matchInfo.target}<br>`;
+        html += `Best: ${Math.max(...matchInfo.match_scores)}`;
+      } else if (matchInfo.total_rounds) {
+        html += `Total: ${matchInfo.total_rounds} rounds`;
+      }
+      
+      container.innerHTML = html;
+    }
+    
+    function renderBoard() {
+      const container = document.getElementById('board');
+      container.innerHTML = '';
+      
+      ['Oros', 'Copas', 'Espadas', 'Bastos'].forEach(suit => {
+        const pile = document.createElement('div');
+        pile.className = 'pile';
+        
+        const title = document.createElement('div');
+        title.className = 'pile-title';
+        title.textContent = suit;
+        pile.appendChild(title);
+        
+        const slots = document.createElement('div');
+        slots.className = 'pile-slots';
+        
+        const playedRanks = gameState.board[suit];
+        
+        RANKS.forEach(rank => {
+          const slot = document.createElement('div');
+          slot.className = 'pile-slot' + (rank === 5 ? ' five-slot' : '');
+          
+          if (playedRanks.includes(rank)) {
+            const card = createCardElement(suit, rank, false);
+            slot.appendChild(card);
+          }
+          
+          slots.appendChild(slot);
+        });
+        
+        pile.appendChild(slots);
+        container.appendChild(pile);
+      });
+    }
+    
+    function renderHand() {
+      const container = document.getElementById('hand-cards');
+      container.innerHTML = '';
+      
+      const humanPlayer = gameState.players[0];
+      const isMyTurn = gameState.current_player === 0;
+      const isWild = gameState.dice_state.wild_active;
+      
+      humanPlayer.hand.forEach(card => {
+        const isPlayable = isMyTurn && (isWild || canPlay(card));
+        const cardEl = createCardElement(card.suit, card.rank, isPlayable);
+        
+        if (isWild && isPlayable) {
+          cardEl.classList.add('wild-playable');
+        }
+        
+        if (isPlayable) {
+          cardEl.onclick = () => playCard(card.suit, card.rank);
+        }
+        
+        container.appendChild(cardEl);
+      });
+      
+      const hint = document.getElementById('hand-hint');
+      if (!isMyTurn) {
+        hint.textContent = 'Waiting for opponent...';
+      } else if (isWild) {
+        hint.textContent = '⭐ WILD - play any card!';
+      } else {
+        const playableCount = humanPlayer.hand.filter(c => canPlay(c)).length;
+        hint.textContent = playableCount > 0 ? `${playableCount} playable card(s)` : 'No moves available';
+      }
+    }
+    
+    function renderControls() {
+      const isMyTurn = gameState.current_player === 0;
+      const isWild = gameState.dice_state.wild_active;
+      const hasPlayableCards = gameState.players[0].hand.some(c => canPlay(c));
+      
+      document.getElementById('pass-btn').disabled = !isMyTurn || isWild || gameState.game_over;
+      document.getElementById('roll-btn').disabled = !isMyTurn || isWild || !hasPlayableCards || gameState.game_over;
+    }
+    
+    function updateStatus() {
+      const status = document.getElementById('status');
+      if (gameState.game_over) {
+        status.textContent = `Round over! Player ${gameState.winner + 1} wins!`;
+      } else if (gameState.current_player === 0) {
+        status.textContent = 'Your turn!';
+      } else {
+        status.textContent = `Player ${gameState.current_player + 1}'s turn...`;
+      }
+    }
+    
+    function canPlay(card) {
+      const suit = card.suit;
+      const rank = card.rank;
+      const playedRanks = gameState.board[suit];
+      
+      // Already played
+      if (playedRanks.includes(rank)) return false;
+      
+      // Empty suit - only 5 can start
+      if (playedRanks.length === 0) return rank === 5;
+      
+      // Check adjacency
+      const rankIndex = RANKS.indexOf(rank);
+      if (rankIndex > 0 && playedRanks.includes(RANKS[rankIndex - 1])) return true;
+      if (rankIndex < RANKS.length - 1 && playedRanks.includes(RANKS[rankIndex + 1])) return true;
+      
+      return false;
+    }
+    
+    function createCardElement(suit, rank, playable) {
+      const div = document.createElement('div');
+      div.className = `card ${SUIT_CLASSES[suit]}${playable ? ' playable' : ''}`;
+      div.innerHTML = `
+        <div class="card-rank">${rank}</div>
+        <div class="card-suit-symbol">${SUIT_SYMBOLS[suit]}</div>
+        <div class="card-rank">${rank}</div>
+      `;
+      return div;
+    }
+  </script>
+</body>
+</html>
