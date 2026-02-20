@@ -30,8 +30,9 @@ class StateEncoder:
         - Opponent hand sizes
         - Round/turn info
         - Strategic features (5s, sequence extensions, etc.)
+        - Variant configuration (11 features: penalties, scoring mode, dice config)
         
-        Total: ~150 features
+        Total: ~161 features
         """
         features = []
         
@@ -92,6 +93,55 @@ class StateEncoder:
             features.append(relative_pos)
         else:
             features.append(0.5)
+        
+        # === VARIANT CONFIGURATION FEATURES ===
+        # These help the agent adapt to different rule sets
+        variant = state.variant
+        
+        # Voluntary pass penalty (normalized, 0-1 range for typical values 0-5)
+        features.append(variant.voluntary_pass_penalty / 5.0)
+        
+        # Points per card (normalized, typical values 1-3)
+        features.append(variant.points_per_card / 3.0)
+        
+        # Scoring mode (binary encoding)
+        from game.entities import ScoringMode
+        is_winner_takes_all = 1.0 if variant.scoring_mode == ScoringMode.WINNER_TAKES_ALL else 0.0
+        is_double_penalty = 1.0 if variant.scoring_mode == ScoringMode.DOUBLE_PENALTY else 0.0
+        features.append(is_winner_takes_all)
+        features.append(is_double_penalty)
+        
+        # Dice probabilities
+        features.append(variant.dice_good_probability)  # Probability of good outcome
+        
+        # Dice effects impact (simplified encoding)
+        from game.entities import GoodDiceEffect, BadDiceEffect
+        
+        # Good effect encoding (which type of good effect)
+        is_wild = 1.0 if variant.dice_good_effect == GoodDiceEffect.WILD else 0.0
+        is_double_play = 1.0 if variant.dice_good_effect == GoodDiceEffect.DOUBLE_PLAY else 0.0
+        features.append(is_wild)
+        features.append(is_double_play)
+        
+        # Bad effect severity (normalized)
+        if variant.dice_bad_effect == BadDiceEffect.TAKE_CARDS:
+            bad_severity = variant.dice_bad_cards_count / 5.0  # Typical range 1-5
+        elif variant.dice_bad_effect == BadDiceEffect.NEGATIVE_POINTS:
+            bad_severity = variant.dice_bad_penalty_points / 5.0
+        elif variant.dice_bad_effect == BadDiceEffect.FORCED_PASS:
+            bad_severity = 0.3  # Medium severity
+        else:  # REVEAL_HAND
+            bad_severity = 0.2  # Low severity
+        features.append(bad_severity)
+        
+        # Match end mode info
+        from game.entities import MatchEndMode
+        is_target_score = 1.0 if variant.match_end_mode == MatchEndMode.TARGET_SCORE else 0.0
+        is_fixed_rounds = 1.0 if variant.match_end_mode == MatchEndMode.FIXED_ROUNDS else 0.0
+        features.append(is_target_score)
+        features.append(is_fixed_rounds)
+        
+        # Total features: ~150 (original) + 11 (variant) = ~161
         
         return np.array(features, dtype=np.float32)
     
@@ -453,6 +503,10 @@ class RLAgent(Agent):
                       next_state: GameState, player_index: int) -> float:
         """
         Compute reward for a state transition with improved shaping.
+        
+        Now variant-aware: scales rewards based on:
+        - voluntary_pass_penalty: affects penalty for passing
+        - points_per_card: affects value of reducing hand size
         """
         reward = 0.0
         
@@ -474,17 +528,20 @@ class RLAgent(Agent):
                 if state.board.is_adjacent(action.card):
                     reward += 0.5
         
-        # Hand size reduction is good
+        # Hand size reduction is good (scale by variant's points_per_card)
         hand_diff = player.hand_size() - next_player.hand_size()
-        reward += hand_diff * 2.0
+        card_value_multiplier = next_state.variant.points_per_card
+        reward += hand_diff * 2.0 * card_value_multiplier
         
-        # Round score improvement is good
+        # Round score improvement is good (already scaled by variant in game rules)
         round_score_diff = next_player.round_score - player.round_score
         reward += round_score_diff * 1.0
         
-        # Penalty for passing
+        # Penalty for passing (use variant-specific penalty)
         if isinstance(action, Pass) and action.voluntary:
-            reward -= 3.0
+            # Scale penalty based on variant configuration
+            penalty_multiplier = next_state.variant.voluntary_pass_penalty
+            reward -= penalty_multiplier * 3.0  # Base penalty * variant multiplier
         
         # Check if round ended (someone went out)
         if next_state.game_over and not state.game_over:
@@ -496,8 +553,9 @@ class RLAgent(Agent):
             if next_player.hand_size() == 0:
                 reward += 30.0
             else:
-                # Penalty for not going out
-                reward -= next_player.hand_size() * 2.0
+                # Penalty for not going out (scaled by card value)
+                card_value_multiplier = next_state.variant.points_per_card
+                reward -= next_player.hand_size() * 2.0 * card_value_multiplier
             
             # Match score matters
             final_score = next_player.match_score

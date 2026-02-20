@@ -11,7 +11,7 @@ from game.entities import VariantConfig, MatchEndMode, ScoringMode
 from game.rules import Rules
 
 
-def test_trained_agent(weights_path: str = "models/rl_agent_best.pkl"):
+def test_trained_agent(weights_path):
     """Test trained RL agent against other agents."""
     
     print("="*60)
@@ -171,8 +171,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='models/rl_agent_best.pkl',
-                       help='Path to trained weights')
+    parser.add_argument('--weights', type=str, default='models/rl_agent_v4.pkl', help='Path to trained weights')
     args = parser.parse_args()
     
     test_trained_agent(args.weights)
