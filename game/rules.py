@@ -57,6 +57,7 @@ class PlayCard(Move):
     def apply(self, state: GameState) -> GameState:
         """Apply the card play."""
         new_state = state.copy()
+        outgoing_player = new_state.current_player
         player = new_state.get_current_player()
         
         # Remove card from hand and add to board
@@ -72,14 +73,17 @@ class PlayCard(Move):
         if new_state.dice_state.wild_active:
             new_state.dice_state.wild_active = False
         
-        # If double play is active, keep it for one more card
-        # Otherwise, advance turn
+        # If double play is active, keep it for one more card this same turn.
+        # Otherwise advance to next player and clear the outgoing player's reveal.
         if not new_state.dice_state.double_play_active:
             if not new_state.game_over:
                 new_state.current_player = new_state.next_player_index()
                 new_state.turn_number += 1
+                # The outgoing player has finished their turn: clear their
+                # INFO_REVEAL visibility (they have already used or forfeited it).
+                new_state.dice_state.clear_viewer(outgoing_player)
         else:
-            # First card of double play used
+            # First card of double play consumed — next card still this player's turn.
             new_state.dice_state.double_play_active = False
         
         return new_state
@@ -122,26 +126,31 @@ class RollDice(Move):
         from game.entities import GoodDiceEffect
         
         if effect == GoodDiceEffect.WILD:
-            # Player can play any card
+            # Player can play any card ignoring adjacency rules
             state.dice_state.wild_active = True
             
         elif effect == GoodDiceEffect.DOUBLE_PLAY:
-            # Player can play two cards this turn
+            # Player can play up to two individually-legal cards this turn
             state.dice_state.double_play_active = True
             
         elif effect == GoodDiceEffect.GIVE_CARD:
-            # Give one card to another player (strategic choice)
+            # Give one card to the next player in turn order (q), reducing own hand
             current_player = state.get_current_player()
             if current_player.hand_size() > 0:
-                # Give to player with most cards (helps them less)
-                target_idx = state.get_player_with_most_cards(exclude=state.current_player)
+                target_idx = state.next_player_index()
                 card = current_player.hand.pop()
                 state.players[target_idx].add_card(card)
+
+            # If the giver gave away their last card they've gone out — end the game.
+            if current_player.hand_size() == 0:
+                state.game_over = True
+                state.winner = state.current_player
                 
         elif effect == GoodDiceEffect.INFO_REVEAL:
-            # See hand of player with most cards (most threatening)
-            target_idx = state.get_player_with_most_cards(exclude=state.current_player)
-            state.dice_state.revealed_player = target_idx
+            # Player p sees the full hand of u — the opponent with the FEWEST cards.
+            # (u is the most dangerous: closest to going out first.)
+            target_idx = state.get_player_with_fewest_cards(exclude=state.current_player)
+            state.dice_state.reveal_to(state.current_player, target_idx)
     
     def _apply_bad_effect(self, state: GameState, effect, variant):
         """Apply the bad dice effect."""
@@ -150,7 +159,7 @@ class RollDice(Move):
         current_player = state.get_current_player()
         
         if effect == BadDiceEffect.TAKE_CARDS:
-            # Receive cards from player with most cards
+            # Receive cards from player k — the opponent with the MOST cards
             donor_idx = state.get_player_with_most_cards(exclude=state.current_player)
             donor = state.players[donor_idx]
             
@@ -161,20 +170,31 @@ class RollDice(Move):
             for card in cards_to_transfer:
                 donor.remove_card(card)
                 current_player.add_card(card)
+
+            # If the donor was drained to 0 cards they've gone out — end the game.
+            if donor.hand_size() == 0:
+                state.game_over = True
+                state.winner = donor_idx
                 
         elif effect == BadDiceEffect.NEGATIVE_POINTS:
             # Lose points immediately
             current_player.match_score -= variant.dice_bad_penalty_points
             
         elif effect == BadDiceEffect.FORCED_PASS:
-            # Must pass this turn (no penalty)
-            # Advance to next player
+            # Turn ends immediately — involuntary, no penalty applied
+            outgoing = state.current_player
             state.current_player = state.next_player_index()
             state.turn_number += 1
+            state.dice_state.clear_viewer(outgoing)
             
         elif effect == BadDiceEffect.REVEAL_HAND:
-            # Your hand is revealed to all players
-            state.dice_state.revealed_player = state.current_player
+            # All opponents can see the current player's (p's) full hand.
+            # Each opponent i gets: revealed_hands[i] = p
+            # They will use this information on their own turns.
+            p = state.current_player
+            for i in range(len(state.players)):
+                if i != p:
+                    state.dice_state.reveal_to(i, p)
     
     def _choose_worst_cards(self, player, count: int, state: GameState):
         """
@@ -215,17 +235,13 @@ class RollDice(Move):
         return "RollDice"
 
 
-
 @dataclass
 class Pass(Move):
     """Pass the turn (voluntary or forced)."""
     voluntary: bool = False
     
     def is_legal(self, state: GameState, player_index: int) -> bool:
-        """
-        Passing is always legal.
-        Voluntary pass requires having at least one legal card.
-        """
+        """Passing is always legal."""
         return True
     
     def apply(self, state: GameState) -> GameState:
@@ -241,7 +257,7 @@ class Pass(Move):
         new_state.current_player = new_state.next_player_index()
         new_state.turn_number += 1
         
-        # Clear any one-shot dice effects
+        # Clear all one-shot dice effects (wild, double-play, and all reveal entries)
         new_state.dice_state.clear()
         
         return new_state

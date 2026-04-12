@@ -148,44 +148,85 @@ class Board:
 
 class GoodDiceEffect(Enum):
     """Good dice outcomes."""
-    WILD = "wild"  # Play any card
-    DOUBLE_PLAY = "double_play"  # Play two cards this turn
-    GIVE_CARD = "give_card"  # Give one card to another player
-    INFO_REVEAL = "info_reveal"  # See another player's hand
+    WILD = "wild"           # Play any card ignoring adjacency rules
+    DOUBLE_PLAY = "double_play"  # Play two individually-legal cards this turn
+    GIVE_CARD = "give_card"      # Give one card to the next player in turn order
+    INFO_REVEAL = "info_reveal"  # See the full hand of the opponent with fewest cards
 
 
 class BadDiceEffect(Enum):
     """Bad dice outcomes."""
-    TAKE_CARDS = "take_cards"  # Receive cards from another player
+    TAKE_CARDS = "take_cards"         # Receive cards from the opponent with most cards
     NEGATIVE_POINTS = "negative_points"  # Lose points immediately
-    FORCED_PASS = "forced_pass"  # Must pass this turn
-    REVEAL_HAND = "reveal_hand"  # Your hand is revealed to others
+    FORCED_PASS = "forced_pass"       # Turn ends immediately (involuntary, no penalty)
+    REVEAL_HAND = "reveal_hand"       # All opponents can see your full hand
 
 
 class ScoringMode(Enum):
     """Scoring system modes."""
     WINNER_TAKES_ALL = "winner_takes_all"  # Winner gets sum of all opponent cards
-    DOUBLE_PENALTY = "double_penalty"  # Winner gains, losers lose per card
+    DOUBLE_PENALTY = "double_penalty"      # Winner gains, losers lose per card
 
 
 class MatchEndMode(Enum):
     """Match ending conditions."""
-    TARGET_SCORE = "target_score"  # First to reach score target
-    FIXED_ROUNDS = "fixed_rounds"  # Play fixed number of rounds
+    TARGET_SCORE = "target_score"   # First to reach score target
+    FIXED_ROUNDS = "fixed_rounds"   # Play fixed number of rounds
 
 
 @dataclass
 class DiceState:
-    """Transient state from dice effects."""
+    """
+    Transient state from dice effects.
+    
+    Information reveal tracking:
+      revealed_hands maps viewer_index -> target_index.
+      
+      For GoodDiceEffect.INFO_REVEAL: the rolling player p gains visibility
+        of u (the opponent with fewest cards):
+            revealed_hands[p] = u
+      
+      For BadDiceEffect.REVEAL_HAND: all opponents gain visibility of p's hand:
+            revealed_hands[opp_0] = p
+            revealed_hands[opp_1] = p
+            ...
+      
+      Reveal entries for a viewer are cleared when that viewer's turn ends
+      (i.e. when they play a card and the turn advances, or when they pass).
+    """
     wild_active: bool = False
     double_play_active: bool = False
-    revealed_player: Optional[int] = None  # Which player's hand was revealed
+    # Maps viewer_index -> target_index (whose hand viewer can see)
+    revealed_hands: Dict[int, int] = field(default_factory=dict)
     
+    # ------------------------------------------------------------------
+    # Helper accessors
+    # ------------------------------------------------------------------
+
+    def can_see_hand(self, viewer: int, target: int) -> bool:
+        """Return True if viewer can currently see target's full hand."""
+        return self.revealed_hands.get(viewer) == target
+
+    def reveal_to(self, viewer: int, target: int):
+        """Grant viewer full visibility of target's hand."""
+        self.revealed_hands[viewer] = target
+
+    def get_revealed_target(self, viewer: int) -> Optional[int]:
+        """
+        Return the player index whose hand is currently visible to viewer,
+        or None if no reveal is active for this viewer.
+        """
+        return self.revealed_hands.get(viewer)
+
+    def clear_viewer(self, viewer: int):
+        """Remove the active reveal entry for a specific viewer."""
+        self.revealed_hands.pop(viewer, None)
+
     def clear(self):
-        """Clear all one-shot effects."""
+        """Clear all one-shot effects (called on pass / end of action)."""
         self.wild_active = False
         self.double_play_active = False
-        self.revealed_player = None
+        self.revealed_hands = {}
 
 
 @dataclass
@@ -273,7 +314,7 @@ class GameState:
         new_dice_state = DiceState(
             wild_active=self.dice_state.wild_active,
             double_play_active=self.dice_state.double_play_active,
-            revealed_player=self.dice_state.revealed_player
+            revealed_hands=dict(self.dice_state.revealed_hands)  # shallow copy is fine
         )
         
         return GameState(

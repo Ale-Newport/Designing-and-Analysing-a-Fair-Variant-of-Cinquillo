@@ -205,14 +205,14 @@ class TestDiceState:
         ds = DiceState()
         assert not ds.wild_active
         assert not ds.double_play_active
-        assert ds.revealed_player is None
+        assert ds.revealed_hands is None
 
     def test_clear(self):
-        ds = DiceState(wild_active=True, double_play_active=True, revealed_player=2)
+        ds = DiceState(wild_active=True, double_play_active=True, revealed_hands=2)
         ds.clear()
         assert not ds.wild_active
         assert not ds.double_play_active
-        assert ds.revealed_player is None
+        assert ds.revealed_hands is None
 
 
 # ══════════════════════════════════════════════

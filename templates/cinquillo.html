@@ -20,13 +20,17 @@
       
       --card-w: 50px;
       --card-h: 70px;
+
+      /* Info-reveal colour palette */
+      --reveal-good-bg: #fffbeb;
+      --reveal-good-border: #f59e0b;
+      --reveal-good-text: #92400e;
+      --reveal-bad-bg: #fef2f2;
+      --reveal-bad-border: #ef4444;
+      --reveal-bad-text: #991b1b;
     }
     
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     
     body {
       font-family: 'Segoe UI', system-ui, sans-serif;
@@ -47,17 +51,8 @@
       justify-content: space-between;
       box-shadow: 0 2px 6px rgba(0,0,0,0.25);
     }
-    
-    .header h1 {
-      font-size: 1.2rem;
-      font-weight: 700;
-    }
-    
-    .header-controls {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
+    .header h1 { font-size: 1.2rem; font-weight: 700; }
+    .header-controls { display: flex; gap: 12px; align-items: center; }
     
     .btn {
       padding: 6px 12px;
@@ -67,31 +62,16 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-    
-    .btn-primary {
-      background: #4a7c59;
-      color: white;
-    }
-    
-    .btn-primary:hover {
-      background: #3d6649;
-    }
-    
-    .btn:disabled {
-      background: #9ca3af;
-      cursor: not-allowed;
-    }
+    .btn-primary { background: #4a7c59; color: white; }
+    .btn-primary:hover { background: #3d6649; }
+    .btn:disabled { background: #9ca3af; cursor: not-allowed; }
     
     /* Main Layout */
-    .main-container {
-      display: flex;
-      flex: 1;
-      min-height: 0;
-    }
+    .main-container { display: flex; flex: 1; min-height: 0; }
     
     /* Sidebar */
     .sidebar {
-      width: 200px;
+      width: 210px;
       background: linear-gradient(180deg, #faf7f0 0%, #f0ebe0 100%);
       border-right: 2px solid var(--border-wood);
       padding: 12px;
@@ -117,21 +97,20 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.15);
       border-left: 3px solid var(--border-wood);
     }
-    
     .player-card.active {
       border-left-color: var(--gold-accent);
       box-shadow: 0 2px 6px rgba(0,0,0,0.25);
     }
+    .player-card.human { border-left-color: var(--oros); }
     
-    .player-card.human {
-      border-left-color: var(--oros);
+    /* Revealed-hand highlight on player card in sidebar */
+    .player-card.revealed-to-me {
+      border-left-color: #f59e0b;
+      background: var(--reveal-good-bg);
+      box-shadow: 0 0 0 2px #f59e0b55, 0 2px 6px rgba(0,0,0,0.2);
     }
     
-    .player-name {
-      font-weight: 700;
-      font-size: 0.8rem;
-      margin-bottom: 4px;
-    }
+    .player-name { font-weight: 700; font-size: 0.8rem; margin-bottom: 4px; }
     
     .player-stats {
       display: grid;
@@ -139,26 +118,74 @@
       gap: 4px;
       font-size: 0.7rem;
     }
+    .stat { display: flex; justify-content: space-between; }
+    .stat-label { color: #666; }
+    .stat-value { font-weight: 600; }
     
-    .stat {
+    /* Revealed hand display inside player card */
+    .revealed-hand {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed #f59e0b;
+    }
+    .revealed-hand-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #92400e;
+      margin-bottom: 4px;
       display: flex;
-      justify-content: space-between;
+      align-items: center;
+      gap: 4px;
     }
-    
-    .stat-label {
-      color: #666;
+    .revealed-hand-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
     }
+    .mini-card {
+      font-size: 0.65rem;
+      padding: 2px 4px;
+      border-radius: 3px;
+      background: white;
+      border: 1px solid #ccc;
+      font-weight: 700;
+    }
+    .mini-card.oros   { color: var(--oros); border-color: var(--oros); }
+    .mini-card.copas  { color: var(--copas); border-color: var(--copas); }
+    .mini-card.espadas { color: var(--espadas); border-color: var(--espadas); }
+    .mini-card.bastos { color: var(--bastos); border-color: var(--bastos); }
     
-    .stat-value {
+    /* Info-reveal notification banners */
+    .info-reveal-banner {
+      display: none;
+      padding: 8px 14px;
+      margin: 0 0 8px 0;
+      border-radius: 6px;
+      font-size: 0.82rem;
       font-weight: 600;
+      border-left: 4px solid;
+      align-items: center;
+      gap: 8px;
+    }
+    .info-reveal-banner.show { display: flex; }
+    
+    .banner-good {
+      background: var(--reveal-good-bg);
+      border-color: var(--reveal-good-border);
+      color: var(--reveal-good-text);
+    }
+    .banner-bad {
+      background: var(--reveal-bad-bg);
+      border-color: var(--reveal-bad-border);
+      color: var(--reveal-bad-text);
     }
     
-/* Game Area */
+    /* Game Area */
     .game-area {
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 16px;
+      padding: 12px 16px;
       overflow: hidden;
     }
     
@@ -166,10 +193,13 @@
       background: white;
       padding: 8px 12px;
       border-radius: 6px;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       font-size: 0.9rem;
     }
+    
+    /* Info-reveal notification area (between status bar and board) */
+    #reveal-notifications { margin-bottom: 4px; }
     
     .board {
       flex: 1;
@@ -183,26 +213,9 @@
       overflow-y: auto;
     }
     
-    .pile {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    
-    .pile-title {
-      color: var(--text-light);
-      font-weight: 700;
-      font-size: 0.8rem;
-      text-align: center;
-      margin-bottom: 4px;
-    }
-    
-    .pile-slots {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0;
-    }
+    .pile { display: flex; flex-direction: column; gap: 4px; }
+    .pile-title { color: var(--text-light); font-weight: 700; font-size: 0.8rem; text-align: center; margin-bottom: 4px; }
+    .pile-slots { display: flex; flex-direction: column; align-items: center; gap: 0; }
     
     .pile-slot {
       width: var(--card-w);
@@ -213,57 +226,58 @@
       align-items: center;
       justify-content: center;
     }
+    .pile-slot:not(:first-child) { margin-top: calc(var(--card-h) * -0.3); }
+    .pile-slot.five-slot { border: 2px dashed rgba(255,255,255,0.3); }
     
-    .pile-slot:not(:first-child) {
-      margin-top: calc(var(--card-h) * -0.3);
-    }
-    
-    .pile-slot.five-slot {
-      border: 2px dashed rgba(255,255,255,0.3);
-    }
-    
-    /* Cards */
+    /* ── Cards ─────────────────────────────────────────── */
     .card {
       width: var(--card-w);
       height: var(--card-h);
       background: white;
-      border-radius: 4px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.8);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 4px;
-      font-weight: 700;
-      font-size: 0.9rem;
+      border-radius: 5px;
+      border: 1.5px solid rgba(0,0,0,0.18);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
     }
-    
     .card.playable {
       cursor: pointer;
-      box-shadow: 0 0 0 2px var(--gold-accent), 0 4px 12px rgba(201, 162, 39, 0.6);
+      box-shadow: 0 0 0 2px var(--gold-accent), 0 4px 12px rgba(201,162,39,0.55);
     }
-    
     .card.playable:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 0 0 2px var(--gold-accent), 0 6px 16px rgba(201, 162, 39, 0.7);
+      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 0 0 2.5px var(--gold-accent), 0 7px 18px rgba(201,162,39,0.65);
     }
-    
     .card.wild-playable {
-      box-shadow: 0 0 0 2px #ec4899, 0 4px 12px rgba(236, 72, 153, 0.6);
+      box-shadow: 0 0 0 2px #ec4899, 0 4px 12px rgba(236,72,153,0.55);
     }
-    
-    .card.oros { color: var(--oros); }
-    .card.copas { color: var(--copas); }
-    .card.espadas { color: var(--espadas); }
-    .card.bastos { color: var(--bastos); }
-    
-    .card-rank {
-      font-size: 0.8rem;
+
+    /* Rank in top-left corner, coloured by suit */
+    .card-rank-tl {
+      position: absolute;
+      top: 3px;
+      left: 5px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      line-height: 1;
     }
-    
-    .card-suit-symbol {
-      text-align: center;
-      font-size: 1.2rem;
+    /* Centred suit SVG */
+    .card-suit-area {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -38%);
+      width: 68%;
+      height: 68%;
     }
+    .card-suit-area svg { width: 100%; height: 100%; overflow: visible; }
+
+    /* Suit text colours (rank + SVG stroke hints) */
+    .card.oros    .card-rank-tl { color: var(--oros); }
+    .card.copas   .card-rank-tl { color: var(--copas); }
+    .card.espadas .card-rank-tl { color: var(--espadas); }
+    .card.bastos  .card-rank-tl { color: var(--bastos); }
     
     /* Hand Area */
     .hand-area {
@@ -271,7 +285,22 @@
       padding: 12px;
       border-radius: 6px;
       box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+      position: relative;
     }
+
+    /* "Opponents see your hand" warning strip inside hand area */
+    .hand-exposed-warning {
+      display: none;
+      background: var(--reveal-bad-bg);
+      border: 1px solid var(--reveal-bad-border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--reveal-bad-text);
+      margin-bottom: 8px;
+    }
+    .hand-exposed-warning.show { display: flex; align-items: center; gap: 6px; }
     
     .hand-title {
       font-weight: 700;
@@ -280,20 +309,9 @@
       justify-content: space-between;
       align-items: center;
     }
+    .hand-cards { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
     
-    .hand-cards {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-    
-    .controls {
-      display: flex;
-      gap: 8px;
-      justify-content: center;
-      margin-top: 12px;
-    }
+    .controls { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
     
     /* Modal */
     .modal {
@@ -305,10 +323,7 @@
       justify-content: center;
       z-index: 1000;
     }
-    
-    .modal.show {
-      display: flex;
-    }
+    .modal.show { display: flex; }
     
     .modal-content {
       background: white;
@@ -322,37 +337,16 @@
       display: flex;
       flex-direction: column;
     }
-    
     .modal-header {
       padding: 20px 24px;
       border-bottom: 2px solid var(--border-wood);
       background: linear-gradient(135deg, #f9f7f0 0%, #f0ebe0 100%);
     }
-    
-    .modal-body {
-      padding: 20px 24px;
-      overflow-y: auto;
-      flex: 1;
-    }
-    
-    .modal-body::-webkit-scrollbar {
-      width: 8px;
-    }
-    
-    .modal-body::-webkit-scrollbar-track {
-      background: #f1f1f1;
-      border-radius: 4px;
-    }
-    
-    .modal-body::-webkit-scrollbar-thumb {
-      background: var(--border-wood);
-      border-radius: 4px;
-    }
-    
-    .modal-body::-webkit-scrollbar-thumb:hover {
-      background: #6b3410;
-    }
-    
+    .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+    .modal-body::-webkit-scrollbar { width: 8px; }
+    .modal-body::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+    .modal-body::-webkit-scrollbar-thumb { background: var(--border-wood); border-radius: 4px; }
+    .modal-body::-webkit-scrollbar-thumb:hover { background: #6b3410; }
     .modal-footer {
       padding: 16px 24px;
       border-top: 1px solid #e5e5e5;
@@ -361,7 +355,6 @@
       gap: 8px;
       justify-content: center;
     }
-    
     .modal-title {
       font-size: 1.4rem;
       font-weight: 700;
@@ -370,16 +363,8 @@
       color: var(--text-dark);
     }
     
-    .config-section {
-      margin-bottom: 16px;
-    }
-    
-    .config-section h3 {
-      font-size: 1rem;
-      margin-bottom: 8px;
-      color: var(--border-wood);
-    }
-    
+    .config-section { margin-bottom: 16px; }
+    .config-section h3 { font-size: 1rem; margin-bottom: 8px; color: var(--border-wood); }
     .config-row {
       display: flex;
       justify-content: space-between;
@@ -389,12 +374,7 @@
       background: #f9f9f9;
       border-radius: 4px;
     }
-    
-    .config-row label {
-      font-size: 0.85rem;
-      font-weight: 600;
-    }
-    
+    .config-row label { font-size: 0.85rem; font-weight: 600; }
     .config-row select,
     .config-row input[type="number"] {
       padding: 4px 8px;
@@ -402,6 +382,29 @@
       border-radius: 4px;
       font-size: 0.85rem;
     }
+    
+    .debug-card { font-size: 0.7rem; padding: 2px 4px; border-radius: 3px; background: white; border: 1px solid #ccc; }
+
+    /* LaTeX export modal */
+    #latex-modal .modal-content { max-width: 780px; }
+    .latex-code-box {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: 'Consolas', 'Fira Code', monospace;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      padding: 14px 16px;
+      border-radius: 6px;
+      overflow-y: auto;
+      max-height: 52vh;
+      white-space: pre;
+      tab-size: 2;
+      border: 1px solid #313244;
+    }
+    .latex-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    .btn-latex { background: #313244; color: #cdd6f4; border: 1px solid #45475a; }
+    .btn-latex:hover { background: #45475a; }
+    .btn-copy-ok { background: #a6e3a1 !important; color: #1e1e2e !important; }
   </style>
 </head>
 <body>
@@ -433,10 +436,29 @@
     <!-- Game Area -->
     <main class="game-area">
       <div class="status-bar" id="status">Click "New Match" to start!</div>
+
+      <!-- Info-reveal notification banners (shown between status bar and board) -->
+      <div id="reveal-notifications">
+        <!-- Good effect: YOU can see an opponent's hand -->
+        <div class="info-reveal-banner banner-good" id="banner-info-reveal-good">
+          <span>👁</span>
+          <span id="banner-info-reveal-good-text"></span>
+        </div>
+        <!-- Bad effect: opponents can see YOUR hand -->
+        <div class="info-reveal-banner banner-bad" id="banner-info-reveal-bad">
+          <span>⚠️</span>
+          <span id="banner-info-reveal-bad-text"></span>
+        </div>
+      </div>
       
       <div class="board" id="board"></div>
       
       <div class="hand-area">
+        <!-- Warning strip shown inside hand area when opponents see your hand -->
+        <div class="hand-exposed-warning" id="hand-exposed-warning">
+          <span>👁</span>
+          <span id="hand-exposed-warning-text">All opponents can see your hand!</span>
+        </div>
         <div class="hand-title">
           <span>Your Hand</span>
           <span id="hand-hint" style="font-size: 0.8rem; color: #666;"></span>
@@ -456,7 +478,6 @@
       <div class="modal-header">
         <h2 class="modal-title">New Match Configuration</h2>
       </div>
-      
       <div class="modal-body">
         <div class="config-section">
           <h3>Game Settings</h3>
@@ -490,16 +511,14 @@
           <div class="config-row">
             <label>
               <input type="checkbox" id="debug-mode" style="width: auto; margin-right: 8px;">
-              Debug Mode (See all cards & AI decisions)
+              Debug Mode (See all cards &amp; AI decisions)
             </label>
           </div>
         </div>
         
         <div class="config-section">
           <h3>Agent Selection</h3>
-          <div id="agent-selectors">
-            <!-- Agent selectors will be dynamically generated -->
-          </div>
+          <div id="agent-selectors"></div>
         </div>
         
         <div class="config-section">
@@ -514,7 +533,7 @@
               <option value="WILD" selected>Wild Card</option>
               <option value="DOUBLE_PLAY">Double Play</option>
               <option value="GIVE_CARD">Give Card</option>
-              <option value="INFO_REVEAL">Info Reveal</option>
+              <option value="INFO_REVEAL">Info Reveal (see fewest-card opponent)</option>
             </select>
           </div>
           <div class="config-row">
@@ -523,7 +542,7 @@
               <option value="TAKE_CARDS" selected>Take Cards</option>
               <option value="NEGATIVE_POINTS">Negative Points</option>
               <option value="FORCED_PASS">Forced Pass</option>
-              <option value="REVEAL_HAND">Reveal Hand</option>
+              <option value="REVEAL_HAND">Reveal Hand (opponents see your cards)</option>
             </select>
           </div>
           <div class="config-row">
@@ -570,7 +589,6 @@
           </div>
         </div>
       </div>
-      
       <div class="modal-footer">
         <button class="btn btn-primary" onclick="startNewMatch()">Start Match</button>
         <button class="btn" onclick="hideConfigModal()">Cancel</button>
@@ -581,14 +599,11 @@
   <!-- Round End Modal -->
   <div class="modal" id="round-modal">
     <div class="modal-content">
-      <div class="modal-header">
-        <h2 class="modal-title">Round Complete!</h2>
-      </div>
-      <div class="modal-body">
-        <div id="round-result" style="text-align: center;"></div>
-      </div>
+      <div class="modal-header"><h2 class="modal-title">Round Complete!</h2></div>
+      <div class="modal-body"><div id="round-result" style="text-align: center;"></div></div>
       <div class="modal-footer">
         <button class="btn btn-primary" onclick="nextRound()">Next Round</button>
+        <button class="btn" style="background:#6d28d9;color:white;" onclick="requestLatex()">📄 Export LaTeX Diagram</button>
       </div>
     </div>
   </div>
@@ -596,14 +611,36 @@
   <!-- Match End Modal -->
   <div class="modal" id="match-modal">
     <div class="modal-content">
-      <div class="modal-header">
-        <h2 class="modal-title">🏆 Match Complete!</h2>
-      </div>
-      <div class="modal-body">
-        <div id="match-result" style="text-align: center;"></div>
-      </div>
+      <div class="modal-header"><h2 class="modal-title">🏆 Match Complete!</h2></div>
+      <div class="modal-body"><div id="match-result" style="text-align: center;"></div></div>
       <div class="modal-footer">
         <button class="btn btn-primary" onclick="showConfigModal()">New Match</button>
+        <button class="btn" style="background:#6d28d9;color:white;" onclick="requestLatex()">📄 Export LaTeX Diagram</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LaTeX Export Modal -->
+  <div class="modal" id="latex-modal">
+    <div class="modal-content" style="max-width:800px;width:95%;">
+      <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 class="modal-title" style="font-size:1.1rem;">📄 LaTeX Flow Diagram</h2>
+        <button class="btn" style="padding:4px 10px;background:#e5e7eb;" onclick="document.getElementById('latex-modal').classList.remove('show')">✕</button>
+      </div>
+      <div class="modal-body" style="padding:16px;">
+        <p style="font-size:0.82rem;color:#555;margin-bottom:10px;">
+          Compile with <code style="background:#f3f4f6;padding:2px 5px;border-radius:3px;">pdflatex</code> or paste into
+          <a href="https://overleaf.com" target="_blank" style="color:#6d28d9;">Overleaf</a>.
+        </p>
+        <div id="latex-loading" style="text-align:center;padding:24px;display:none;">
+          <span style="font-size:0.9rem;color:#6b7280;">⏳ Generating diagram…</span>
+        </div>
+        <pre id="latex-code-box" class="latex-code-box" style="display:none;"></pre>
+      </div>
+      <div class="modal-footer latex-actions">
+        <button class="btn btn-latex" id="copy-latex-btn" onclick="copyLatex()">📋 Copy to Clipboard</button>
+        <button class="btn btn-latex" onclick="downloadLatex()">⬇️ Download .tex</button>
+        <button class="btn" onclick="document.getElementById('latex-modal').classList.remove('show')">Close</button>
       </div>
     </div>
   </div>
@@ -614,32 +651,30 @@
     let matchInfo = null;
     
     const SUIT_SYMBOLS = {
-      'Oros': '♦',
-      'Copas': '♥',
-      'Espadas': '♠',
-      'Bastos': '♣'
+      'Oros': '♦', 'Copas': '♥', 'Espadas': '♠', 'Bastos': '♣'
     };
-    
     const SUIT_CLASSES = {
-      'Oros': 'oros',
-      'Copas': 'copas',
-      'Espadas': 'espadas',
-      'Bastos': 'bastos'
+      'Oros': 'oros', 'Copas': 'copas', 'Espadas': 'espadas', 'Bastos': 'bastos'
     };
-    
     const RANKS = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
     
+    // -------------------------------------------------------------------------
+    // Config modal helpers
+    // -------------------------------------------------------------------------
     function showConfigModal() {
       document.getElementById('config-modal').classList.add('show');
-      updateAgentSelectors();  // Initialize agent selectors
-      updateStartingPlayerSelector();  // Initialize starting player selector
+      updateAgentSelectors();
+      updateStartingPlayerSelector();
+    }
+    
+    function hideConfigModal() {
+      document.getElementById('config-modal').classList.remove('show');
     }
     
     function updateStartingPlayerSelector() {
       const numPlayers = parseInt(document.getElementById('num-players').value);
       const selector = document.getElementById('starting-player');
       selector.innerHTML = '';
-      
       for (let i = 0; i < numPlayers; i++) {
         const option = document.createElement('option');
         option.value = i;
@@ -653,16 +688,11 @@
       const numPlayers = parseInt(document.getElementById('num-players').value);
       const container = document.getElementById('agent-selectors');
       container.innerHTML = '';
-      
       for (let i = 0; i < numPlayers; i++) {
         const row = document.createElement('div');
         row.className = 'config-row';
-        
         if (i === 0) {
-          row.innerHTML = `
-            <label>Player ${i + 1}:</label>
-            <span style="color: #4a7c59; font-weight: 600;">Human (You)</span>
-          `;
+          row.innerHTML = `<label>Player ${i + 1}:</label><span style="color: #4a7c59; font-weight: 600;">Human (You)</span>`;
         } else {
           row.innerHTML = `
             <label>Player ${i + 1}:</label>
@@ -673,35 +703,27 @@
               <option value="mcts">MCTS Agent</option>
               <option value="rl">RL Agent</option>
               <option value="random">Random Agent</option>
-            </select>
-          `;
+            </select>`;
         }
-        
         container.appendChild(row);
       }
     }
     
-    function hideConfigModal() {
-      document.getElementById('config-modal').classList.remove('show');
-    }
-    
+    // -------------------------------------------------------------------------
+    // Match start
+    // -------------------------------------------------------------------------
     async function startNewMatch() {
       const numPlayers = parseInt(document.getElementById('num-players').value);
       const debugMode = document.getElementById('debug-mode').checked;
       const startingPlayer = parseInt(document.getElementById('starting-player').value);
       const botDelay = parseInt(document.getElementById('bot-delay').value);
-      
-      // Store bot delay globally
       window.botMoveDelay = botDelay;
       
-      // Collect agent types
       const agentTypes = {};
       for (let i = 0; i < numPlayers; i++) {
-        if (i !== 0) {  // Skip human player (always position 0)
+        if (i !== 0) {
           const selector = document.getElementById(`agent-${i}`);
-          if (selector) {
-            agentTypes[i] = selector.value;
-          }
+          if (selector) agentTypes[i] = selector.value;
         }
       }
       
@@ -730,57 +752,46 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(config)
       });
-      
       const data = await response.json();
       matchId = data.match_id;
       gameState = data.state;
       matchInfo = data.match_info;
       
-      // Initialize debug log
       if (debugMode) {
         document.getElementById('debug-content').innerHTML = '';
-        addDebugLog('🔍 Debug mode enabled - showing all cards and moves');
+        addDebugLog('🔍 Debug mode enabled — showing all cards and moves');
         addDebugLog(`Match started with ${numPlayers} players`);
         addDebugLog(`Starting player: Player ${startingPlayer + 1}`);
-        addDebugLog(`Current player in state: Player ${gameState.current_player + 1}`);
         addDebugLog(`Bot move delay: ${botDelay}ms`);
       }
       
       hideConfigModal();
       render();
       
-      // Process initial bot moves if needed (with delay)
       if (gameState.current_player !== 0) {
         await processBotMovesWithDelay();
       }
     }
     
+    // -------------------------------------------------------------------------
+    // Move helpers
+    // -------------------------------------------------------------------------
     async function makeMove(type, moveData = {}) {
-      // Store old round score to detect penalty
       const oldRoundScore = gameState ? gameState.players[0].round_score : 0;
       
-      // Log human move in debug mode (initial log)
       if (gameState && gameState.debug_mode) {
-        let moveDesc = `Human (Player 1): ${type}`;
         if (moveData.suit) {
-          moveDesc = `Human (Player 1) played ${moveData.rank}${SUIT_SYMBOLS[moveData.suit]}`;
-          addDebugLog(moveDesc);
+          addDebugLog(`Human (Player 1) played ${moveData.rank}${SUIT_SYMBOLS[moveData.suit]}`);
         } else if (type === 'roll_dice') {
           addDebugLog('Human (Player 1) rolled dice');
         }
-        // For pass, we'll log after we know if penalty was applied
       }
       
       const response = await fetch('/api/make_move', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          match_id: matchId,
-          move_type: type,
-          move_data: moveData
-        })
+        body: JSON.stringify({ match_id: matchId, move_type: type, move_data: moveData })
       });
-      
       const data = await response.json();
       
       if (data.round_over) {
@@ -789,47 +800,56 @@
         gameState = data.state;
         matchInfo = data.match_info;
         
-        // Log pass move AFTER we get the result
         if (type === 'pass' && gameState.debug_mode) {
           const newRoundScore = gameState.players[0].round_score;
           const penalty = newRoundScore - oldRoundScore;
-          if (penalty < 0) {
-            addDebugLog(`Human (Player 1) passed (voluntary, ${penalty} penalty)`);
-          } else {
-            addDebugLog(`Human (Player 1) passed (forced, no penalty)`);
-          }
+          addDebugLog(penalty < 0
+            ? `Human (Player 1) passed (voluntary, ${penalty} penalty)`
+            : 'Human (Player 1) passed (forced, no penalty)');
+        }
+        
+        // Log info-reveal events in debug mode
+        if (gameState.debug_mode && type === 'roll_dice') {
+          logRevealEvents();
         }
         
         render();
         
-        // Process bot moves one at a time with delay
         if (gameState.current_player !== 0 && !gameState.game_over) {
           await processBotMovesWithDelay();
         }
       }
     }
     
+    function playCard(suit, rank) {
+      makeMove('play_card', {suit, rank});
+    }
+    
+    // -------------------------------------------------------------------------
+    // Bot move loop
+    // -------------------------------------------------------------------------
     async function processBotMovesWithDelay() {
       const delay = window.botMoveDelay || 500;
       
       while (!gameState.game_over && gameState.current_player !== 0) {
-        // Wait before making the move (so user can see the state)
-        if (delay > 0) {
-          await sleep(delay);
-        }
+        if (delay > 0) await sleep(delay);
         
-        // Make one bot move
         const response = await fetch('/api/bot_move', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ match_id: matchId })
         });
-        
         const data = await response.json();
         
-        // Log the move in debug mode
         if (data.move_info && gameState.debug_mode) {
           addDebugLog(`${data.move_info.move_description} [${data.move_info.agent_type}]`);
+          // Log if the bot was using revealed info
+          if (data.move_info.had_revealed_info) {
+            const revTarget = gameState.dice_state.revealed_hands[String(data.move_info.player)];
+            if (revTarget !== undefined) {
+              addDebugLog(`  ↳ Used revealed hand of Player ${revTarget + 1}`);
+            }
+          }
         }
         
         if (data.round_over) {
@@ -844,10 +864,10 @@
         matchInfo = data.match_info;
         render();
         
-        // CRITICAL: Check game_over in the NEW state before continuing loop
-        if (gameState.game_over) {
-          break;
-        }
+        // Log any newly active reveal events in debug mode
+        if (gameState.debug_mode) logRevealEvents();
+        
+        if (gameState.game_over) break;
       }
     }
     
@@ -858,26 +878,39 @@
     function addDebugLog(message) {
       const debugContent = document.getElementById('debug-content');
       if (!debugContent) return;
-      
       const timestamp = new Date().toLocaleTimeString();
       const entry = document.createElement('div');
-      entry.style.marginBottom = '4px';
-      entry.style.paddingBottom = '4px';
-      entry.style.borderBottom = '1px solid #f3f4f6';
-      entry.innerHTML = `<span style="color: #6b7280;">[${timestamp}]</span> ${message}`;
-      
+      entry.style.cssText = 'margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid #f3f4f6;';
+      entry.innerHTML = `<span style="color:#6b7280;">[${timestamp}]</span> ${message}`;
       debugContent.insertBefore(entry, debugContent.firstChild);
-      
-      // Keep only last 20 entries
       while (debugContent.children.length > 20) {
         debugContent.removeChild(debugContent.lastChild);
       }
     }
     
-    function playCard(suit, rank) {
-      makeMove('play_card', {suit, rank});
+    /**
+     * Log info-reveal events that became active after the latest move.
+     * Called only in debug mode.
+     */
+    function logRevealEvents() {
+      if (!gameState || !gameState.debug_mode) return;
+      const rh = gameState.dice_state.revealed_hands || {};
+      
+      // Human player (0) gets to see an opponent's hand
+      if ('0' in rh) {
+        addDebugLog(`👁 You can see Player ${rh['0'] + 1}'s hand!`);
+      }
+      // Check if any bot can see human's hand
+      Object.entries(rh).forEach(([viewer, target]) => {
+        if (parseInt(viewer) !== 0 && target === 0) {
+          addDebugLog(`⚠️ Player ${parseInt(viewer) + 1} can see YOUR hand!`);
+        }
+      });
     }
     
+    // -------------------------------------------------------------------------
+    // Round / match end
+    // -------------------------------------------------------------------------
     function handleRoundEnd(data) {
       gameState = data.state;
       matchInfo = data.match_info;
@@ -905,12 +938,10 @@
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({match_id: matchId})
       });
-      
       const data = await response.json();
       gameState = data.state;
       matchInfo = data.match_info;
       
-      // Log round start in debug mode
       if (gameState.debug_mode) {
         addDebugLog(`--- Round ${gameState.round_number} started ---`);
         addDebugLog(`Starting player: Player ${gameState.current_player + 1}`);
@@ -918,72 +949,121 @@
       
       render();
       
-      // Process bot moves if needed (with delay)
       if (gameState.current_player !== 0 && !gameState.game_over) {
         await processBotMovesWithDelay();
       }
     }
     
+    // -------------------------------------------------------------------------
+    // Render orchestration
+    // -------------------------------------------------------------------------
     function render() {
       if (!gameState) return;
-      
       renderPlayers();
       renderMatchInfo();
       renderBoard();
       renderHand();
       renderControls();
       updateStatus();
+      renderRevealNotifications();
       
-      // Show/hide debug panel
       const debugPanel = document.getElementById('debug-panel');
-      if (gameState.debug_mode) {
-        debugPanel.style.display = 'block';
+      debugPanel.style.display = gameState.debug_mode ? 'block' : 'none';
+    }
+    
+    // -------------------------------------------------------------------------
+    // renderRevealNotifications — info-reveal banners between status & board
+    // -------------------------------------------------------------------------
+    /**
+     * Show/hide the two notification banners:
+     *   banner-info-reveal-good  — human can see an opponent's hand (INFO_REVEAL good)
+     *   banner-info-reveal-bad   — opponents can see human's hand (REVEAL_HAND bad)
+     */
+    function renderRevealNotifications() {
+      const goodBanner  = document.getElementById('banner-info-reveal-good');
+      const goodText    = document.getElementById('banner-info-reveal-good-text');
+      const badBanner   = document.getElementById('banner-info-reveal-bad');
+      const badText     = document.getElementById('banner-info-reveal-bad-text');
+      const handWarning = document.getElementById('hand-exposed-warning');
+      
+      // --- Good banner: YOU can see an opponent's hand ---
+      const visibleHands = gameState.visible_hands || {};
+      // visible_hands contains human (0) always; any extra key is the revealed opponent
+      const revealedOpponentIdx = Object.keys(visibleHands)
+        .map(Number)
+        .find(k => k !== 0);
+      
+      if (revealedOpponentIdx !== undefined && gameState.current_player === 0) {
+        goodBanner.classList.add('show');
+        goodText.textContent =
+          `You can see Player ${revealedOpponentIdx + 1}'s full hand! ` +
+          `Use this information to plan your move.`;
       } else {
-        debugPanel.style.display = 'none';
+        goodBanner.classList.remove('show');
+      }
+      
+      // --- Bad banner: opponents can see YOUR hand ---
+      const opponentsSeeMyHand = gameState.opponents_see_my_hand || false;
+      
+      if (opponentsSeeMyHand) {
+        badBanner.classList.add('show');
+        badText.textContent = 'All opponents can see your hand — play quickly!';
+        handWarning.classList.add('show');
+      } else {
+        badBanner.classList.remove('show');
+        handWarning.classList.remove('show');
       }
     }
     
+    // -------------------------------------------------------------------------
+    // renderPlayers — sidebar player cards with optional revealed-hand display
+    // -------------------------------------------------------------------------
     function renderPlayers() {
       const container = document.getElementById('players-list');
       container.innerHTML = '';
       const debugMode = gameState.debug_mode || false;
+      const visibleHands = gameState.visible_hands || {};
       
       gameState.players.forEach(player => {
         const isActive = player.index === gameState.current_player;
-        const isHuman = player.index === 0;
+        const isHuman  = player.index === 0;
+        
+        // Is this player's hand currently visible to the human (info reveal)?
+        const isRevealedToMe = !isHuman && String(player.index) in visibleHands;
         
         const div = document.createElement('div');
-        div.className = `player-card${isActive ? ' active' : ''}${isHuman ? ' human' : ''}`;
+        div.className = [
+          'player-card',
+          isActive ? 'active' : '',
+          isHuman  ? 'human' : '',
+          isRevealedToMe ? 'revealed-to-me' : ''
+        ].filter(Boolean).join(' ');
         
+        // Build hand HTML for debug mode (all hands) OR info-reveal (specific hand)
         let handHTML = '';
+        
         if (debugMode && player.hand) {
-          // Show all cards in debug mode
-          handHTML = '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #ddd;">';
-          handHTML += '<div style="font-size: 0.75rem; font-weight: 600; margin-bottom: 4px;">Hand:</div>';
-          handHTML += '<div style="display: flex; flex-wrap: wrap; gap: 2px;">';
-          player.hand.forEach(card => {
-            const suit = card.suit;
-            const suitClass = SUIT_CLASSES[suit];
-            handHTML += `<span class="debug-card ${suitClass}" style="font-size: 0.7rem; padding: 2px 4px; border-radius: 3px; background: white; border: 1px solid #ccc;">${card.rank}${SUIT_SYMBOLS[suit]}</span>`;
-          });
-          handHTML += '</div></div>';
+          // Debug mode: show all hands
+          handHTML = buildMiniHandHTML(player.hand, 'Debug hand:');
+        } else if (isRevealedToMe) {
+          // Info-reveal: show only this opponent's revealed hand
+          const revealedCards = visibleHands[String(player.index)];
+          handHTML = buildMiniHandHTML(revealedCards, '👁 Revealed to you:');
         }
         
+        // Badge shown on player card when their hand is revealed
+        const revealBadge = isRevealedToMe
+          ? `<span style="font-size:0.65rem;background:#f59e0b;color:white;padding:1px 5px;border-radius:8px;margin-left:4px;">👁 Visible</span>`
+          : '';
+        
         div.innerHTML = `
-          <div class="player-name">Player ${player.index + 1}${isHuman ? ' (You)' : ''}</div>
+          <div class="player-name">
+            Player ${player.index + 1}${isHuman ? ' (You)' : ''}${revealBadge}
+          </div>
           <div class="player-stats">
-            <div class="stat">
-              <span class="stat-label">Cards:</span>
-              <span class="stat-value">${player.hand_size}</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Round:</span>
-              <span class="stat-value">${player.round_score}</span>
-            </div>
-            <div class="stat">
-              <span class="stat-label">Match:</span>
-              <span class="stat-value">${player.match_score}</span>
-            </div>
+            <div class="stat"><span class="stat-label">Cards:</span><span class="stat-value">${player.hand_size}</span></div>
+            <div class="stat"><span class="stat-label">Round:</span><span class="stat-value">${player.round_score}</span></div>
+            <div class="stat"><span class="stat-label">Match:</span><span class="stat-value">${player.match_score}</span></div>
           </div>
           ${handHTML}
         `;
@@ -991,20 +1071,41 @@
       });
     }
     
+    /**
+     * Build mini card display HTML for a list of card objects.
+     * Used for both debug mode and info-reveal display in the sidebar.
+     */
+    function buildMiniHandHTML(cards, label) {
+      if (!cards || cards.length === 0) return '';
+      let html = `<div class="revealed-hand">`;
+      html += `<div class="revealed-hand-label">${label}</div>`;
+      html += `<div class="revealed-hand-cards">`;
+      cards.forEach(card => {
+        const suitClass = SUIT_CLASSES[card.suit];
+        html += `<span class="mini-card ${suitClass}">${card.rank}${SUIT_SYMBOLS[card.suit]}</span>`;
+      });
+      html += `</div></div>`;
+      return html;
+    }
+    
+    // -------------------------------------------------------------------------
+    // renderMatchInfo
+    // -------------------------------------------------------------------------
     function renderMatchInfo() {
       const container = document.getElementById('match-info');
       let html = `Round: ${matchInfo.round}<br>`;
-      
       if (matchInfo.target) {
         html += `Target: ${matchInfo.target}<br>`;
         html += `Best: ${Math.max(...matchInfo.match_scores)}`;
       } else if (matchInfo.total_rounds) {
         html += `Total: ${matchInfo.total_rounds} rounds`;
       }
-      
       container.innerHTML = html;
     }
     
+    // -------------------------------------------------------------------------
+    // renderBoard
+    // -------------------------------------------------------------------------
     function renderBoard() {
       const container = document.getElementById('board');
       container.innerHTML = '';
@@ -1040,72 +1141,86 @@
       });
     }
     
+    // -------------------------------------------------------------------------
+    // renderHand — human player's cards
+    // -------------------------------------------------------------------------
     function renderHand() {
       const container = document.getElementById('hand-cards');
       container.innerHTML = '';
       
       const humanPlayer = gameState.players[0];
       const isMyTurn = gameState.current_player === 0;
-      const isWild = gameState.dice_state.wild_active;
+      const isWild   = gameState.dice_state.wild_active;
       
       humanPlayer.hand.forEach(card => {
         const isPlayable = isMyTurn && (isWild || canPlay(card));
         const cardEl = createCardElement(card.suit, card.rank, isPlayable);
         
-        if (isWild && isPlayable) {
-          cardEl.classList.add('wild-playable');
-        }
-        
-        if (isPlayable) {
-          cardEl.onclick = () => playCard(card.suit, card.rank);
-        }
+        if (isWild && isPlayable) cardEl.classList.add('wild-playable');
+        if (isPlayable) cardEl.onclick = () => playCard(card.suit, card.rank);
         
         container.appendChild(cardEl);
       });
       
       const hint = document.getElementById('hand-hint');
       if (!isMyTurn) {
-        hint.textContent = 'Waiting for opponent...';
+        hint.textContent = 'Waiting for opponent…';
       } else if (isWild) {
-        hint.textContent = '⭐ WILD - play any card!';
+        hint.textContent = '⭐ WILD — play any card!';
       } else {
         const playableCount = humanPlayer.hand.filter(c => canPlay(c)).length;
-        hint.textContent = playableCount > 0 ? `${playableCount} playable card(s)` : 'No moves available';
+        hint.textContent = playableCount > 0
+          ? `${playableCount} playable card(s)`
+          : 'No moves available';
       }
     }
     
+    // -------------------------------------------------------------------------
+    // renderControls
+    // -------------------------------------------------------------------------
     function renderControls() {
       const isMyTurn = gameState.current_player === 0;
-      const isWild = gameState.dice_state.wild_active;
+      const isWild   = gameState.dice_state.wild_active;
       const hasPlayableCards = gameState.players[0].hand.some(c => canPlay(c));
       
       document.getElementById('pass-btn').disabled = !isMyTurn || isWild || gameState.game_over;
       document.getElementById('roll-btn').disabled = !isMyTurn || isWild || !hasPlayableCards || gameState.game_over;
     }
     
+    // -------------------------------------------------------------------------
+    // updateStatus
+    // -------------------------------------------------------------------------
     function updateStatus() {
       const status = document.getElementById('status');
       if (gameState.game_over) {
         status.textContent = `Round over! Player ${gameState.winner + 1} wins!`;
       } else if (gameState.current_player === 0) {
-        status.textContent = 'Your turn!';
+        // Check if we have revealed info to mention
+        const rh = gameState.dice_state.revealed_hands || {};
+        if ('0' in rh) {
+          status.textContent = `Your turn! (👁 You can see Player ${rh['0'] + 1}'s hand)`;
+        } else {
+          status.textContent = 'Your turn!';
+        }
       } else {
-        status.textContent = `Player ${gameState.current_player + 1}'s turn...`;
+        status.textContent = `Player ${gameState.current_player + 1}'s turn…`;
       }
     }
     
+    // -------------------------------------------------------------------------
+    // canPlay — adjacency check mirroring the engine
+    // -------------------------------------------------------------------------
     function canPlay(card) {
       const suit = card.suit;
       const rank = card.rank;
       const playedRanks = gameState.board[suit];
       
-      // Already played
       if (playedRanks.includes(rank)) return false;
-      
-      // Empty suit - only 5 can start
       if (playedRanks.length === 0) return rank === 5;
       
-      // Check adjacency
+      // 5 can always be played on a non-empty suit if not yet there
+      if (rank === 5 && !playedRanks.includes(5)) return true;
+      
       const rankIndex = RANKS.indexOf(rank);
       if (rankIndex > 0 && playedRanks.includes(RANKS[rankIndex - 1])) return true;
       if (rankIndex < RANKS.length - 1 && playedRanks.includes(RANKS[rankIndex + 1])) return true;
@@ -1113,15 +1228,147 @@
       return false;
     }
     
+    // -------------------------------------------------------------------------
+    // suitSVG — returns inline SVG string matching the LaTeX TikZ suit designs
+    // -------------------------------------------------------------------------
+    function suitSVG(suit) {
+      // Oros: gold coin with concentric rings, 8 rotated diamonds, 12 perimeter dots
+      if (suit === 'Oros') {
+        const diamonds = [22.5,67.5,112.5,157.5,202.5,247.5,292.5,337.5]
+          .map(a => `<polygon points="0,-0.46 0.09,0 0,0.46 -0.09,0" fill="#78350f" transform="rotate(${a})"/>`)
+          .join('');
+        const perimDots = Array.from({length:12}, (_,i) => {
+          const r = i*30*Math.PI/180;
+          return `<circle cx="${(1.15*Math.cos(r)).toFixed(3)}" cy="${(1.15*Math.sin(r)).toFixed(3)}" r="0.052" fill="#78350f"/>`;
+        }).join('');
+        return `<svg viewBox="-1.5 -1.5 3 3" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+          <circle r="1.32" fill="#fbbf24" stroke="#c97000" stroke-width="0.11"/>
+          <circle r="1.00" fill="#fef9c3" stroke="#c97000" stroke-width="0.09"/>
+          ${diamonds}<circle r="0.09" fill="#78350f"/>${perimDots}
+        </svg>`;
+      }
+
+      // Copas: goblet with curved body, teal rim, stem+base, yellow cross ornaments
+      // Coordinates derived from TikZ SuitCopas (scale=0.74, yshift=0.35, y-flipped for SVG)
+      if (suit === 'Copas') {
+        return `<svg viewBox="-1.1 -1.25 2.2 3.05" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+          <path d="M-0.925,-0.905 C-1.147,-0.424,-1.036,0.353,-0.407,0.723
+                   C-0.148,0.871,0.148,0.871,0.407,0.723
+                   C1.036,0.353,1.147,-0.424,0.925,-0.905
+                   C0.592,-0.757,-0.592,-0.757,-0.925,-0.905 Z"
+                fill="#991b1b" stroke="#7f1d1d" stroke-width="0.07"/>
+          <ellipse cx="0" cy="-0.928" rx="0.918" ry="0.266" fill="#0891b2" stroke="#0e7490" stroke-width="0.08"/>
+          <rect x="-0.178" y="0.723" width="0.356" height="0.592" fill="#991b1b" stroke="#7f1d1d" stroke-width="0.06"/>
+          <rect x="-0.518" y="1.315" width="1.036" height="0.274" rx="0.05" fill="#991b1b" stroke="#7f1d1d" stroke-width="0.06"/>
+          <polygon points="-0.296,0.390 -0.163,0.317 -0.163,0.501 -0.296,0.575" fill="#fbbf24"/>
+          <polygon points="0,0.331 0.096,0.449 0,0.628 -0.096,0.449" fill="#fbbf24"/>
+          <polygon points="0.296,0.390 0.163,0.317 0.163,0.501 0.296,0.575" fill="#fbbf24"/>
+        </svg>`;
+      }
+
+      // Espadas: leaf-shaped blade, crossguard, tang, pommel
+      // Coordinates derived from TikZ SuitEspadas (y-flipped for SVG)
+      if (suit === 'Espadas') {
+        return `<svg viewBox="-1.0 -1.78 2.0 3.66" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+          <path d="M0,-1.50 C0.58,-0.72,0.48,0.28,0,1.14 C-0.48,0.28,-0.58,-0.72,0,-1.50 Z"
+                fill="#e5e7eb" stroke="#6b7280" stroke-width="0.08"/>
+          <line x1="0" y1="-1.20" x2="0" y2="0.95" stroke="#9ca3af" stroke-width="0.06"/>
+          <rect x="-0.92" y="0.84" width="1.84" height="0.24" rx="0.04" fill="#fbbf24" stroke="#c97000" stroke-width="0.07"/>
+          <rect x="-0.16" y="1.08" width="0.32" height="0.40" fill="#fbbf24" stroke="#c97000" stroke-width="0.06"/>
+          <circle cx="0" cy="1.62" r="0.17" fill="#fbbf24" stroke="#c97000" stroke-width="0.06"/>
+        </svg>`;
+      }
+
+      // Bastos: wooden staff with knob, grain marks, leaf accents, rotated 18°
+      // Coordinates derived from TikZ SuitBastos (y-flipped for SVG, rotate(-18) to match)
+      if (suit === 'Bastos') {
+        const grainLines = [0.95,0.35,-0.25,-0.82]
+          .map(y => `<ellipse cx="0" cy="${y}" rx="0.11" ry="0.055" fill="none" stroke="#78350f" stroke-width="0.05"/>`)
+          .join('');
+        return `<svg viewBox="-1.05 -2.05 2.1 4.10" xmlns="http://www.w3.org/2000/svg" overflow="visible">
+          <g transform="rotate(-18)">
+            <rect x="-0.19" y="-1.20" width="0.38" height="2.75" rx="0.09" fill="#a16207" stroke="#78350f" stroke-width="0.07"/>
+            ${grainLines}
+            <ellipse cx="0" cy="-1.55" rx="0.63" ry="0.42" fill="#a16207" stroke="#78350f" stroke-width="0.08"/>
+            <path d="M-0.19,-0.45 C-0.70,-0.58,-0.68,-0.14,-0.19,-0.18 Z" fill="#15803d" stroke="#14532d" stroke-width="0.04"/>
+            <path d="M0.19,0.02 C0.70,-0.12,0.68,0.28,0.19,0.30 Z" fill="#15803d" stroke="#14532d" stroke-width="0.04"/>
+          </g>
+        </svg>`;
+      }
+      return '';
+    }
+
+    // -------------------------------------------------------------------------
+    // createCardElement — renders a card with SVG suit symbol
+    // -------------------------------------------------------------------------
     function createCardElement(suit, rank, playable) {
       const div = document.createElement('div');
       div.className = `card ${SUIT_CLASSES[suit]}${playable ? ' playable' : ''}`;
-      div.innerHTML = `
-        <div class="card-rank">${rank}</div>
-        <div class="card-suit-symbol">${SUIT_SYMBOLS[suit]}</div>
-        <div class="card-rank">${rank}</div>
-      `;
+
+      const rankEl = document.createElement('div');
+      rankEl.className = 'card-rank-tl';
+      rankEl.textContent = rank;
+
+      const suitEl = document.createElement('div');
+      suitEl.className = 'card-suit-area';
+      suitEl.innerHTML = suitSVG(suit);
+
+      div.appendChild(rankEl);
+      div.appendChild(suitEl);
       return div;
+    }
+
+    // -------------------------------------------------------------------------
+    // LaTeX export functions
+    // -------------------------------------------------------------------------
+    let _latexText = '';
+
+    async function requestLatex() {
+      const modal = document.getElementById('latex-modal');
+      const box   = document.getElementById('latex-code-box');
+      const load  = document.getElementById('latex-loading');
+      box.style.display = 'none';
+      load.style.display = 'block';
+      modal.classList.add('show');
+
+      try {
+        const resp = await fetch('/api/generate_round_latex', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({match_id: matchId})
+        });
+        const data = await resp.json();
+        if (data.error) throw new Error(data.error);
+        _latexText = data.latex;
+        box.textContent = _latexText;
+        load.style.display = 'none';
+        box.style.display = 'block';
+      } catch(e) {
+        _latexText = '';
+        load.style.display = 'none';
+        box.textContent = `% Error generating LaTeX:\n% ${e.message}`;
+        box.style.display = 'block';
+      }
+    }
+
+    function copyLatex() {
+      if (!_latexText) return;
+      navigator.clipboard.writeText(_latexText).then(() => {
+        const btn = document.getElementById('copy-latex-btn');
+        btn.textContent = '✅ Copied!';
+        btn.classList.add('btn-copy-ok');
+        setTimeout(() => { btn.textContent = '📋 Copy to Clipboard'; btn.classList.remove('btn-copy-ok'); }, 2000);
+      });
+    }
+
+    function downloadLatex() {
+      if (!_latexText) return;
+      const blob = new Blob([_latexText], {type: 'text/plain'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `cinquillo_round${matchInfo ? matchInfo.round : ''}.tex`;
+      a.click();
+      URL.revokeObjectURL(a.href);
     }
   </script>
 </body>
