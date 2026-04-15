@@ -198,7 +198,7 @@
       font-size: 0.9rem;
     }
     
-    /* Info-reveal notification area (between status bar and board) */
+    /* Info-reveal notification area */
     #reveal-notifications { margin-bottom: 4px; }
     
     .board {
@@ -229,7 +229,7 @@
     .pile-slot:not(:first-child) { margin-top: calc(var(--card-h) * -0.3); }
     .pile-slot.five-slot { border: 2px dashed rgba(255,255,255,0.3); }
     
-    /* ── Cards ─────────────────────────────────────────── */
+    /* Cards */
     .card {
       width: var(--card-w);
       height: var(--card-h);
@@ -437,7 +437,7 @@
     <main class="game-area">
       <div class="status-bar" id="status">Click "New Match" to start!</div>
 
-      <!-- Info-reveal notification banners (shown between status bar and board) -->
+      <!-- Info-reveal notification banners -->
       <div id="reveal-notifications">
         <!-- Good effect: YOU can see an opponent's hand -->
         <div class="info-reveal-banner banner-good" id="banner-info-reveal-good">
@@ -658,9 +658,8 @@
     };
     const RANKS = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12];
     
-    // -------------------------------------------------------------------------
+    
     // Config modal helpers
-    // -------------------------------------------------------------------------
     function showConfigModal() {
       document.getElementById('config-modal').classList.add('show');
       updateAgentSelectors();
@@ -709,9 +708,8 @@
       }
     }
     
-    // -------------------------------------------------------------------------
+    
     // Match start
-    // -------------------------------------------------------------------------
     async function startNewMatch() {
       const numPlayers = parseInt(document.getElementById('num-players').value);
       const debugMode = document.getElementById('debug-mode').checked;
@@ -773,9 +771,8 @@
       }
     }
     
-    // -------------------------------------------------------------------------
+    
     // Move helpers
-    // -------------------------------------------------------------------------
     async function makeMove(type, moveData = {}) {
       const oldRoundScore = gameState ? gameState.players[0].round_score : 0;
       
@@ -825,9 +822,8 @@
       makeMove('play_card', {suit, rank});
     }
     
-    // -------------------------------------------------------------------------
+    
     // Bot move loop
-    // -------------------------------------------------------------------------
     async function processBotMovesWithDelay() {
       const delay = window.botMoveDelay || 500;
       
@@ -898,19 +894,18 @@
       
       // Human player (0) gets to see an opponent's hand
       if ('0' in rh) {
-        addDebugLog(`👁 You can see Player ${rh['0'] + 1}'s hand!`);
+        addDebugLog(`You can see Player ${rh['0'] + 1}'s hand!`);
       }
       // Check if any bot can see human's hand
       Object.entries(rh).forEach(([viewer, target]) => {
         if (parseInt(viewer) !== 0 && target === 0) {
-          addDebugLog(`⚠️ Player ${parseInt(viewer) + 1} can see YOUR hand!`);
+          addDebugLog(`Player ${parseInt(viewer) + 1} can see YOUR hand!`);
         }
       });
     }
     
-    // -------------------------------------------------------------------------
+    
     // Round / match end
-    // -------------------------------------------------------------------------
     function handleRoundEnd(data) {
       gameState = data.state;
       matchInfo = data.match_info;
@@ -954,9 +949,8 @@
       }
     }
     
-    // -------------------------------------------------------------------------
+    
     // Render orchestration
-    // -------------------------------------------------------------------------
     function render() {
       if (!gameState) return;
       renderPlayers();
@@ -971,13 +965,11 @@
       debugPanel.style.display = gameState.debug_mode ? 'block' : 'none';
     }
     
-    // -------------------------------------------------------------------------
+    
     // renderRevealNotifications — info-reveal banners between status & board
-    // -------------------------------------------------------------------------
+    
     /**
      * Show/hide the two notification banners:
-     *   banner-info-reveal-good  — human can see an opponent's hand (INFO_REVEAL good)
-     *   banner-info-reveal-bad   — opponents can see human's hand (REVEAL_HAND bad)
      */
     function renderRevealNotifications() {
       const goodBanner  = document.getElementById('banner-info-reveal-good');
@@ -1015,9 +1007,9 @@
       }
     }
     
-    // -------------------------------------------------------------------------
+    
     // renderPlayers — sidebar player cards with optional revealed-hand display
-    // -------------------------------------------------------------------------
+    
     function renderPlayers() {
       const container = document.getElementById('players-list');
       container.innerHTML = '';
@@ -1072,8 +1064,8 @@
     }
     
     /**
-     * Build mini card display HTML for a list of card objects.
-     * Used for both debug mode and info-reveal display in the sidebar.
+     * Build mini card display HTML for a list of card objects
+     * Used for both debug mode and info-reveal display in the sidebar
      */
     function buildMiniHandHTML(cards, label) {
       if (!cards || cards.length === 0) return '';
@@ -1088,9 +1080,9 @@
       return html;
     }
     
-    // -------------------------------------------------------------------------
+    
     // renderMatchInfo
-    // -------------------------------------------------------------------------
+    
     function renderMatchInfo() {
       const container = document.getElementById('match-info');
       let html = `Round: ${matchInfo.round}<br>`;
@@ -1103,9 +1095,9 @@
       container.innerHTML = html;
     }
     
-    // -------------------------------------------------------------------------
+    
     // renderBoard
-    // -------------------------------------------------------------------------
+    
     function renderBoard() {
       const container = document.getElementById('board');
       container.innerHTML = '';
@@ -1141,9 +1133,9 @@
       });
     }
     
-    // -------------------------------------------------------------------------
+    
     // renderHand — human player's cards
-    // -------------------------------------------------------------------------
+    
     function renderHand() {
       const container = document.getElementById('hand-cards');
       container.innerHTML = '';
@@ -1175,9 +1167,9 @@
       }
     }
     
-    // -------------------------------------------------------------------------
+    
     // renderControls
-    // -------------------------------------------------------------------------
+    
     function renderControls() {
       const isMyTurn = gameState.current_player === 0;
       const isWild   = gameState.dice_state.wild_active;
@@ -1187,9 +1179,9 @@
       document.getElementById('roll-btn').disabled = !isMyTurn || isWild || !hasPlayableCards || gameState.game_over;
     }
     
-    // -------------------------------------------------------------------------
+    
     // updateStatus
-    // -------------------------------------------------------------------------
+    
     function updateStatus() {
       const status = document.getElementById('status');
       if (gameState.game_over) {
@@ -1207,9 +1199,9 @@
       }
     }
     
-    // -------------------------------------------------------------------------
+    
     // canPlay — adjacency check mirroring the engine
-    // -------------------------------------------------------------------------
+    
     function canPlay(card) {
       const suit = card.suit;
       const rank = card.rank;
@@ -1228,9 +1220,9 @@
       return false;
     }
     
-    // -------------------------------------------------------------------------
+    
     // suitSVG — returns inline SVG string matching the LaTeX TikZ suit designs
-    // -------------------------------------------------------------------------
+    
     function suitSVG(suit) {
       // Oros: gold coin with concentric rings, 8 rotated diamonds, 12 perimeter dots
       if (suit === 'Oros') {
@@ -1298,9 +1290,9 @@
       return '';
     }
 
-    // -------------------------------------------------------------------------
+    
     // createCardElement — renders a card with SVG suit symbol
-    // -------------------------------------------------------------------------
+    
     function createCardElement(suit, rank, playable) {
       const div = document.createElement('div');
       div.className = `card ${SUIT_CLASSES[suit]}${playable ? ' playable' : ''}`;
@@ -1318,9 +1310,9 @@
       return div;
     }
 
-    // -------------------------------------------------------------------------
+    
     // LaTeX export functions
-    // -------------------------------------------------------------------------
+    
     let _latexText = '';
 
     async function requestLatex() {

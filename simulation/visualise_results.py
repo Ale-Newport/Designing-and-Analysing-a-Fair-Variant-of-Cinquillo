@@ -1947,8 +1947,12 @@ _EXPERIMENT_RUNNERS = {
 def main():
     t0 = time.time()
     parser = argparse.ArgumentParser(description='Cinquillo 2.0 — Visualisation')
-    parser.add_argument('--exp',    nargs='+', type=int)
-    parser.add_argument('--format', choices=['pdf', 'png'], default='pdf')
+    parser.add_argument('--exp',       nargs='+', type=int)
+    parser.add_argument('--format',    choices=['pdf', 'png'], default='pdf')
+    parser.add_argument('--no-dump',   action='store_true',
+                        help='Skip writing the data dump text file.')
+    parser.add_argument('--dump-only', action='store_true',
+                        help='Write only the data dump (skip all figure/table generation).')
     args = parser.parse_args()
 
     ext     = f'.{args.format}'
@@ -1965,30 +1969,721 @@ def main():
     T  = lambda n: os.path.join(tdir, n + '.tex')
     LD = lambda n: _load(os.path.join(ddir_e, n))
 
-    _header('Cinquillo 2.0 — Visualisation & Report Generator', total=len(run_exp))
+    if not args.dump_only:
+        _header('Cinquillo 2.0 — Visualisation & Report Generator', total=len(run_exp))
+        for exp_num in sorted(run_exp):
+            runner = _EXPERIMENT_RUNNERS.get(exp_num)
+            if runner:
+                runner(F, T, LD, root)
+            else:
+                _warn(f'No runner registered for experiment {exp_num}')
 
-    for exp_num in sorted(run_exp):
-        runner = _EXPERIMENT_RUNNERS.get(exp_num)
-        if runner:
-            runner(F, T, LD, root)
-        else:
-            _warn(f'No runner registered for experiment {exp_num}')
+    # ── Data dump ─────────────────────────────────────────────────────────────
+    if not args.no_dump:
+        dump_out = os.path.join(root, 'output', 'data_dump.txt')
+        dump_data(root, ddir_e, dump_out)
 
     # ── Summary ───────────────────────────────────────────────────────────────
     elapsed = time.time() - t0
     print(f'\n{"━"*72}')
-    print(f'  VISUALISATION COMPLETE  —  elapsed: {elapsed:.1f} s')
+    if args.dump_only:
+        print(f'  DATA DUMP COMPLETE  —  elapsed: {elapsed:.1f} s')
+    else:
+        print(f'  VISUALISATION COMPLETE  —  elapsed: {elapsed:.1f} s')
     print(f'{"━"*72}')
-    for label, d in [('Figures', fdir), ('Tables', tdir)]:
-        if os.path.isdir(d):
-            files = [f for f in os.listdir(d) if os.path.isfile(os.path.join(d, f))]
-            kb = sum(os.path.getsize(os.path.join(d, f)) for f in files) // 1024
-            print(f'  {label:<10} {len(files):>3} files  ({kb} KB)  → {d}/')
+    if not args.dump_only:
+        for label, d in [('Figures', fdir), ('Tables', tdir)]:
+            if os.path.isdir(d):
+                files = [f for f in os.listdir(d) if os.path.isfile(os.path.join(d, f))]
+                kb = sum(os.path.getsize(os.path.join(d, f)) for f in files) // 1024
+                print(f'  {label:<10} {len(files):>3} files  ({kb} KB)  → {d}/')
+    if not args.no_dump:
+        dump_out = os.path.join(root, 'output', 'data_dump.txt')
+        kb = os.path.getsize(dump_out) // 1024 if os.path.exists(dump_out) else 0
+        print(f'  Data dump  → {dump_out}  ({kb} KB)')
     print('\n  LaTeX usage:')
     print(r'    \graphicspath{{output/figures/}}')
     print(r'    \input{output/tables/fairness_ranking}')
     print()
 
+
+# ===========================================================================
+# DATA DUMP  —  writes output/data_dump.txt with every number behind every
+# figure and table so the dissertation text can be verified exactly.
+# ===========================================================================
+
+def _fmt(v, decimals=1):
+    """Format a float to a fixed number of decimal places, or return the value as-is."""
+    try:
+        return f"{float(v):.{decimals}f}"
+    except (TypeError, ValueError):
+        return str(v)
+
+
+def _section(lines, title):
+    bar = "=" * 72
+    lines += ["", bar, f"  {title}", bar]
+
+
+def _subsection(lines, title):
+    lines += ["", f"  --- {title} ---"]
+
+
+def _row(lines, label, value, indent=4):
+    lines.append(f"{' ' * indent}{label}: {value}")
+
+
+def _safe_float(v):
+    """Return v as float, or nan if it is a dict/None/unparseable."""
+    if v is None:
+        return float('nan')
+    if isinstance(v, dict):
+        # some fields store {'chi2':…,'p_value':…} – caller should unpack
+        return float('nan')
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return float('nan')
+
+
+def _chi2_unpack(obj):
+    """Return (chi2_stat, p_value, df) from either a dict or plain floats."""
+    if isinstance(obj, dict):
+        return (obj.get('chi2', float('nan')),
+                obj.get('p_value', float('nan')),
+                obj.get('df', '?'))
+    return (_safe_float(obj), float('nan'), '?')
+
+
+def _pos_unpack(pd):
+    """
+    Given a variant's positional block (which may live at the top level of
+    all_pos[vn]  OR  inside all_pos[vn]['pos']), return a normalised dict:
+        gini, max_dev_pp, chi2_stat, p_value, df, seats
+    """
+    # exp7 stores everything inside a 'pos' sub-key
+    if 'pos' in pd and isinstance(pd['pos'], dict):
+        inner = pd['pos']
+    else:
+        inner = pd
+
+    gini    = _safe_float(inner.get('gini', float('nan')))
+    max_dev = _safe_float(inner.get('max_deviation', inner.get('max_dev', float('nan'))))
+    # max_deviation is stored as a fraction (0-1) in some experiments
+    if not np.isnan(max_dev) and max_dev <= 1.0:
+        max_dev *= 100.0
+
+    chi2_obj              = inner.get('chi2', {})
+    chi2_stat, pval, df   = _chi2_unpack(chi2_obj)
+
+    seats = inner.get('seats', pd.get('seats', {}))
+    return dict(gini=gini, max_dev=max_dev,
+                chi2=chi2_stat, pval=pval, df=df, seats=seats)
+
+
+def dump_data(root, ddir_e, out_path):
+    """
+    Walk every experiment JSON and extract the exact numbers that back each
+    figure and table in the dissertation.  Write everything to `out_path`.
+    """
+
+    def LD(name):
+        p = os.path.join(ddir_e, name)
+        if not os.path.exists(p):
+            return None
+        with open(p) as f:
+            return json.load(f)
+
+    lines = []
+    lines.append("=" * 72)
+    lines.append("  CINQUILLO 2.0 — FIGURE & TABLE DATA DUMP")
+    lines.append(f"  Generated from: {ddir_e}")
+    lines.append("=" * 72)
+
+    # ------------------------------------------------------------------ EXP 1
+    _section(lines, "EXP 1 — First-Player Advantage")
+    d1 = LD('exp1_first_player.json')
+    if d1:
+        NP   = d1.get('NP', 4)
+        data = d1['variants']
+        fair = 100.0 / NP
+
+        _subsection(lines, "Fig: positional_heatmap_all  /  Tab: positional_all_variants")
+        lines.append(f"    Fair-share baseline: {fair:.2f}%  (NP={NP})")
+        lines.append("    " + "{:<22}".format("Variant") +
+                     "".join(f"  Seat{s+1:>2}" for s in range(NP)))
+        lines.append("    " + "-" * (22 + NP * 8))
+        for vn in sorted(data):
+            pu = _pos_unpack(data[vn])
+            seats_str = "".join(
+                f"  {_seat(pu['seats'], s)['win_rate']*100:6.2f}%"
+                for s in range(NP))
+            lines.append(f"    {vn:<22}{seats_str}")
+
+        _subsection(lines, "Fig: first_player_advantage  (Seat-1 deviation from fair)")
+        lines.append(f"    {'Variant':<22}  Seat1%    Deviation(pp)")
+        lines.append("    " + "-" * 52)
+        for vn in sorted(data):
+            pu  = _pos_unpack(data[vn])
+            s1  = _seat(pu['seats'], 0)['win_rate'] * 100
+            dev = s1 - fair
+            lines.append(f"    {vn:<22}  {s1:7.2f}%  {dev:+.2f} pp")
+
+        _subsection(lines, "Tab: chi2_positional  (chi-square positional uniformity)")
+        lines.append(f"    {'Variant':<22}  chi2      df   p-value    Significant?")
+        lines.append("    " + "-" * 62)
+        for vn in sorted(data):
+            pu  = _pos_unpack(data[vn])
+            c2s = f"{pu['chi2']:8.3f}" if not np.isnan(pu['chi2']) else "     nan"
+            pvs = f"{pu['pval']:8.4f}" if not np.isnan(pu['pval']) else "     nan"
+            sig = "YES *" if (not np.isnan(pu['pval']) and pu['pval'] < 0.05) else "no"
+            lines.append(f"    {vn:<22}  {c2s}  {str(pu['df']):<4} {pvs}    {sig}")
+    else:
+        lines.append("    [exp1_first_player.json not found]")
+
+    # ------------------------------------------------------------------ EXP 2
+    _section(lines, "EXP 2 — Dice Probability Sweep")
+    d2 = LD('exp2_dice_usage.json')
+    if d2:
+        sweep = d2['sweep']
+        NP    = d2.get('NP', 4)
+        fair  = 100.0 / NP
+        probs = sorted(sweep.keys(),
+                       key=lambda k: float(k.split('=')[1]) if '=' in k else float(k))
+
+        _subsection(lines, "Fig: positional_vs_dice_prob  (seat win rates vs p_good)")
+        lines.append(f"    Fair-share: {fair:.2f}%")
+        lines.append("    " + "{:<14}".format("p(good)") +
+                     "".join(f"  Seat{s+1:>2}" for s in range(NP)))
+        lines.append("    " + "-" * (14 + NP * 8))
+        for k in probs:
+            pv  = k.split('=')[1] if '=' in k else k
+            pu  = _pos_unpack(sweep[k])
+            seats_str = "".join(
+                f"  {_seat(pu['seats'], s)['win_rate']*100:6.2f}%"
+                for s in range(NP))
+            lines.append(f"    {pv:<14}{seats_str}")
+
+        _subsection(lines, "Fig: dice_prob_fairness_length  (Gini + mean turns vs p_good)")
+        lines.append(f"    {'p(good)':<14}  Gini      Mean_turns")
+        lines.append("    " + "-" * 38)
+        for k in probs:
+            pv  = k.split('=')[1] if '=' in k else k
+            pu  = _pos_unpack(sweep[k])
+            gl  = _safe_float(sweep[k].get('gl', {}).get('mean'))
+            lines.append(f"    {pv:<14}  {pu['gini']:8.4f}  {gl:8.2f}")
+
+        _subsection(lines, "Fig: dice_prob_agent_winrate  (agent win rates vs p_good)")
+        if probs:
+            agents = sorted(sweep[probs[0]].get('ag', {}).keys())
+            lines.append("    " + "{:<14}".format("p(good)") +
+                         "".join(f"  {a:<12}" for a in agents))
+            lines.append("    " + "-" * (14 + len(agents) * 14))
+            for k in probs:
+                pv  = k.split('=')[1] if '=' in k else k
+                ag  = sweep[k].get('ag', {})
+                row = f"    {pv:<14}"
+                for a in agents:
+                    wr = _safe_float(ag.get(a, {}).get('win_rate')) * 100
+                    row += f"  {wr:10.2f}%"
+                lines.append(row)
+    else:
+        lines.append("    [exp2_dice_usage.json not found]")
+
+    # ------------------------------------------------------------------ EXP 3
+    _section(lines, "EXP 3 — Luck vs Skill Decomposition")
+    d3 = LD('exp3_luck_skill.json')
+    if d3:
+        all_vd = d3['all_vd']
+        _subsection(lines, "Fig: luck_skill_stacked  /  Tab: variance_decomp")
+        lines.append(f"    {'Variant':<22}  Agent_skill%  Seat_pos%  Residual_luck%")
+        lines.append("    " + "-" * 62)
+        for vn in sorted(all_vd):
+            vd  = all_vd[vn]
+            ask = _safe_float(vd.get('agent_pct',    vd.get('agent_skill_pct')))
+            sp  = _safe_float(vd.get('seat_pct'))
+            rlk = _safe_float(vd.get('residual_pct', vd.get('luck_pct')))
+            lines.append(f"    {vn:<22}  {ask:10.2f}%  {sp:8.2f}%  {rlk:12.2f}%")
+    else:
+        lines.append("    [exp3_luck_skill.json not found]")
+
+    # ------------------------------------------------------------------ EXP 4
+    _section(lines, "EXP 4 — Comeback / Snowball Dynamics")
+    d4 = LD('exp4_comeback.json')
+    if d4:
+        vdata = d4['variants']
+
+        _subsection(lines, "Fig: comeback_score_margins")
+        lines.append(f"    {'Variant':<22}  Mean_margin  Median   Std    Min   Max")
+        lines.append("    " + "-" * 66)
+        for vn in sorted(vdata):
+            sm = vdata[vn]['sm']
+            lines.append(f"    {vn:<22}  {_fmt(sm.get('mean',0),2):>11}  "
+                         f"{_fmt(sm.get('median',0),2):>6}  "
+                         f"{_fmt(sm.get('std',0),2):>5}  "
+                         f"{_fmt(sm.get('min',0),1):>5}  "
+                         f"{_fmt(sm.get('max',0),1):>5}")
+
+        _subsection(lines, "Fig: comeback_tight_games  (% games with margin <= 1)")
+        lines.append(f"    {'Variant':<22}  Tight_game_%")
+        lines.append("    " + "-" * 36)
+        for vn in sorted(vdata):
+            sm  = vdata[vn]['sm']
+            raw = sm.get('tight_pct', sm.get('tight_games_pct', float('nan')))
+            tg  = _safe_float(raw)
+            if not np.isnan(tg) and tg <= 1.0:
+                tg *= 100.0
+            lines.append(f"    {vn:<22}  {tg:>10.2f}%")
+
+        _subsection(lines, "Fig: comeback_score_variance")
+        lines.append(f"    {'Variant':<22}  Score_variance")
+        lines.append("    " + "-" * 38)
+        for vn in sorted(vdata):
+            sm  = vdata[vn]['sm']
+            var = _safe_float(sm.get('score_variance', sm.get('variance')))
+            lines.append(f"    {vn:<22}  {var:>12.2f}")
+
+        _subsection(lines, "Fig: comeback_game_lengths  (mean game length per variant)")
+        lines.append(f"    {'Variant':<22}  Mean_turns  Median  Std")
+        lines.append("    " + "-" * 52)
+        for vn in sorted(vdata):
+            gl = vdata[vn]['gl']
+            lines.append(f"    {vn:<22}  {_fmt(gl.get('mean',0),2):>10}  "
+                         f"{_fmt(gl.get('median',0),2):>6}  "
+                         f"{_fmt(gl.get('std',0),2):>5}")
+    else:
+        lines.append("    [exp4_comeback.json not found]")
+
+    # ------------------------------------------------------------------ EXP 5
+    _section(lines, "EXP 5 — Agent Win Rates")
+    d5 = LD('exp5_agent_winrates.json')
+    if d5:
+        variants = d5['variants']
+
+        _subsection(lines, "Fig/Tab: agent_winrates_<variant>")
+        for vn in sorted(variants):
+            ag = variants[vn]['ag']
+            lines.append(f"    Variant: {vn}")
+            lines.append(f"      {'Agent':<18}  WinRate%  CI_lo%   CI_hi%   MeanScore  StdScore  N")
+            lines.append("      " + "-" * 72)
+            for a in sorted(ag):
+                d   = ag[a]
+                wr  = _safe_float(d.get('win_rate', 0)) * 100
+                clo = _safe_float(d.get('ci_low',   0)) * 100
+                chi = _safe_float(d.get('ci_high',  1)) * 100
+                ms  = _safe_float(d.get('mean_score'))
+                ss  = _safe_float(d.get('std_score'))
+                n   = int(d.get('total', 0))
+                lines.append(f"      {a:<18}  {wr:7.2f}%  {clo:6.2f}%  {chi:6.2f}%  "
+                             f"{_fmt(ms,3):>9}  {_fmt(ss,3):>8}  {n:>6}")
+
+        if 'Baseline' in variants and 'h2h' in variants['Baseline']:
+            _subsection(lines, "Fig/Tab: h2h_baseline  (pairwise H2H win rates %, row beats col)")
+            h2h = variants['Baseline']['h2h']
+            if isinstance(h2h, dict) and 'names' in h2h:
+                names  = h2h['names']
+                matrix = h2h['matrix']
+                hdr    = "    " + f"{'':18}" + "".join(f"  {a[:12]:<12}" for a in names)
+                lines.append(hdr)
+                lines.append("    " + "-" * (18 + len(names) * 14))
+                for i, a1 in enumerate(names):
+                    row = f"    {a1:<18}"
+                    for j, a2 in enumerate(names):
+                        cell = "--" if i == j else f"{matrix[i][j]*100:.1f}%"
+                        row += f"  {cell:<12}"
+                    lines.append(row)
+            else:
+                agents = sorted(h2h.keys())
+                hdr    = "    " + f"{'':18}" + "".join(f"  {a[:12]:<12}" for a in agents)
+                lines.append(hdr)
+                lines.append("    " + "-" * (18 + len(agents) * 14))
+                for a1 in agents:
+                    row = f"    {a1:<18}"
+                    for a2 in agents:
+                        if a1 == a2:
+                            row += f"  {'--':<12}"
+                        else:
+                            wr = _safe_float(
+                                h2h[a1].get(a2, {}).get('win_rate')) * 100
+                            row += f"  {wr:10.1f}%  "
+                    lines.append(row)
+
+        _subsection(lines, "Fig: agent_across_variants  (win rates by variant x agent)")
+        for vn in sorted(variants):
+            ag   = variants[vn]['ag']
+            bits = "  ".join(
+                f"{a}={_safe_float(ag[a].get('win_rate',0))*100:.1f}%"
+                for a in sorted(ag))
+            lines.append(f"    {vn:<22}  {bits}")
+    else:
+        lines.append("    [exp5_agent_winrates.json not found]")
+
+    # ------------------------------------------------------------------ EXP 6
+    _section(lines, "EXP 6 — Number of Players")
+    d6 = LD('exp6_nplayers.json')
+    if d6:
+        ndata   = d6['nplayer_data']
+        base_pc = {npl: ndata[npl]['Baseline']
+                   for npl in sorted(ndata, key=int)
+                   if 'Baseline' in ndata[npl]}
+
+        _subsection(lines, "Fig: player_count_fairness  /  Tab: player_count")
+        lines.append(f"    {'NP':<6}  Gini      MaxDev(pp)  Chi2      p-value")
+        lines.append("    " + "-" * 56)
+        for npl, bd in base_pc.items():
+            pu  = _pos_unpack(bd)
+            c2s = f"{pu['chi2']:8.3f}" if not np.isnan(pu['chi2']) else "     nan"
+            pvs = f"{pu['pval']:8.4f}" if not np.isnan(pu['pval']) else "     nan"
+            lines.append(f"    {npl:<6}  {pu['gini']:8.4f}  {pu['max_dev']:10.2f}  {c2s}  {pvs}")
+
+        _subsection(lines, "Fig: player_count_positional  (seat win rates by NP, Baseline)")
+        for npl, bd in base_pc.items():
+            pu   = _pos_unpack(bd)
+            np_i = int(npl)
+            fair = 100.0 / np_i
+            seats_str = "  ".join(
+                f"S{s+1}={_seat(pu['seats'], s)['win_rate']*100:.2f}%"
+                for s in range(np_i))
+            lines.append(f"    NP={npl}  (fair={fair:.2f}%)  {seats_str}")
+    else:
+        lines.append("    [exp6_nplayers.json not found]")
+
+    # ------------------------------------------------------------------ EXP 7
+    _section(lines, "EXP 7 — Variant Fairness")
+    d7 = LD('exp7_fairness.json')
+    if d7:
+        fairness = d7['fairness']
+        NP       = 4
+
+        _subsection(lines, "Fig: fairness_ranking  /  Tab: fairness_ranking")
+        lines.append(f"    {'Variant':<22}  Gini      MaxDev(pp)  Chi2      p-value   Tier")
+        lines.append("    " + "-" * 72)
+        for vn in sorted(fairness,
+                         key=lambda v: _pos_unpack(fairness[v])['gini']):
+            pu  = _pos_unpack(fairness[vn])
+            c2s = f"{pu['chi2']:8.3f}" if not np.isnan(pu['chi2']) else "     nan"
+            pvs = f"{pu['pval']:8.4f}" if not np.isnan(pu['pval']) else "     nan"
+            tier = ('FAIR'     if pu['gini'] < 0.03 else
+                    'MODERATE' if pu['gini'] < 0.07 else
+                    'UNFAIR')
+            lines.append(f"    {vn:<22}  {pu['gini']:8.4f}  {pu['max_dev']:10.2f}  "
+                         f"{c2s}  {pvs}  {tier}")
+
+        _subsection(lines, "Fig: fairness_scatter  (Gini vs max_dev, significance flag)")
+        lines.append(f"    {'Variant':<22}  Gini      MaxDev(pp)  Sig(p<0.05)?")
+        lines.append("    " + "-" * 58)
+        for vn in sorted(fairness):
+            pu  = _pos_unpack(fairness[vn])
+            sig = "YES" if (not np.isnan(pu['pval']) and pu['pval'] < 0.05) else "no"
+            lines.append(f"    {vn:<22}  {pu['gini']:8.4f}  {pu['max_dev']:10.2f}  {sig}")
+
+        _subsection(lines, "Fig: game_length_distributions  /  Tab: game_lengths")
+        lines.append(f"    {'Variant':<22}  Mean_turns  Median  Std    Min   Max")
+        lines.append("    " + "-" * 62)
+        for vn in sorted(fairness):
+            gl = fairness[vn].get('gl', {})
+            lines.append(f"    {vn:<22}  {_fmt(gl.get('mean',0),2):>10}  "
+                         f"{_fmt(gl.get('median',0),2):>6}  "
+                         f"{_fmt(gl.get('std',0),2):>5}  "
+                         f"{_fmt(gl.get('min',0),1):>5}  "
+                         f"{_fmt(gl.get('max',0),1):>5}")
+
+        _subsection(lines, "Positional win rates per variant — all 4 seats")
+        lines.append("    " + "{:<22}".format("Variant") +
+                     "".join(f"  Seat{s+1:>2}" for s in range(NP)) + "  Gini")
+        lines.append("    " + "-" * (22 + NP * 8 + 8))
+        for vn in sorted(fairness):
+            pu = _pos_unpack(fairness[vn])
+            seats_str = "".join(
+                f"  {_seat(pu['seats'], s)['win_rate']*100:6.2f}%"
+                for s in range(NP))
+            lines.append(f"    {vn:<22}{seats_str}  {pu['gini']:.4f}")
+
+        if 'group_fairness' in d7:
+            gf = d7['group_fairness']
+
+            _subsection(lines, "Fig: group_fairness_summary  (mean Gini per parameter group)")
+            lines.append(f"    {'Group':<28}  Mean_Gini  Std_Gini  N_configs")
+            lines.append("    " + "-" * 56)
+            for gname in sorted(gf):
+                ginis = [_pos_unpack(gf[gname][k])['gini'] for k in gf[gname]]
+                ginis = [g for g in ginis if not np.isnan(g)]
+                if ginis:
+                    lines.append(f"    {gname:<28}  {np.mean(ginis):9.4f}  "
+                                 f"{np.std(ginis):8.4f}  {len(ginis):>9}")
+
+            for gname in ['Dice Probability', 'Round Count', 'Scoring Mode', 'Bad Effect']:
+                if gname not in gf:
+                    continue
+                _subsection(lines,
+                    f"Fig: fairness_heatmap_{gname.replace(' ','_')}  (positional win rates)")
+                grp  = gf[gname]
+                keys = sorted(grp.keys())
+                lines.append("    " + "{:<24}".format("Config") +
+                             "".join(f"  Seat{s+1:>2}" for s in range(NP)) + "  Gini")
+                lines.append("    " + "-" * (24 + NP * 8 + 8))
+                for k in keys:
+                    pu = _pos_unpack(grp[k])
+                    seats_str = "".join(
+                        f"  {_seat(pu['seats'], s)['win_rate']*100:6.2f}%"
+                        for s in range(NP))
+                    lines.append(f"    {k:<24}{seats_str}  {pu['gini']:.4f}")
+    else:
+        lines.append("    [exp7_fairness.json not found]")
+
+    # ------------------------------------------------------------------ EXP 8
+    _section(lines, "EXP 8 — Diagnostics + Information Reveal")
+    d8 = LD('exp8_information.json')
+    if d8:
+        _subsection(lines, "Fig: info_sweep_winrate  (agent win rates vs p_reveal + mean turns)")
+        info_sw = d8.get('info_sweep', {})
+        if info_sw:
+            pkeys  = sorted(info_sw.keys(),
+                            key=lambda k: float(k.split('=')[1]) if '=' in k else float(k))
+            agents = sorted(info_sw[pkeys[0]].get('ag', {}).keys()) if pkeys else []
+            lines.append("    " + "{:<14}".format("p(reveal)") +
+                         "".join(f"  {a:<12}" for a in agents) + "  MeanTurns")
+            lines.append("    " + "-" * (14 + len(agents) * 14 + 12))
+            for k in pkeys:
+                pv  = k.split('=')[1] if '=' in k else k
+                ag  = info_sw[k].get('ag', {})
+                gl  = _safe_float(info_sw[k].get('gl', {}).get('mean'))
+                row = f"    {pv:<14}"
+                for a in agents:
+                    wr = _safe_float(ag.get(a, {}).get('win_rate')) * 100
+                    row += f"  {wr:10.2f}%"
+                row += f"  {gl:8.2f}"
+                lines.append(row)
+
+        _subsection(lines, "Tab: info_variants  (agent win rates on info-reveal variants)")
+        info_v = d8.get('info_variants', {})
+        if info_v:
+            first  = next(iter(info_v.values()))
+            agents = sorted((first.get('ag', first) if isinstance(first, dict)
+                             else first).keys())
+            lines.append("    " + "{:<22}".format("Variant") +
+                         "".join(f"  {a:<12}" for a in agents))
+            lines.append("    " + "-" * (22 + len(agents) * 14))
+            for vn in sorted(info_v):
+                ag  = info_v[vn].get('ag', info_v[vn]) if isinstance(info_v[vn], dict) else {}
+                row = f"    {vn:<22}"
+                for a in agents:
+                    wr = _safe_float(ag.get(a, {}).get('win_rate')) * 100
+                    row += f"  {wr:10.2f}%"
+                lines.append(row)
+    else:
+        lines.append("    [exp8_information.json not found]")
+
+    _subsection(lines, "Fig: rl_learning_curve  (win rate vs training episodes)")
+    rl_log_path = None
+    for cand in ['rl_agent/models/training_log.json',
+                 'models/training_log.json',
+                 'simulation/training_log.json']:
+        full = os.path.join(root, cand)
+        if os.path.exists(full):
+            rl_log_path = full
+            break
+    if rl_log_path:
+        with open(rl_log_path) as f:
+            rl_log = json.load(f)
+        entries = rl_log if isinstance(rl_log, list) else rl_log.get('log', [])
+        if entries:
+            sample_every = max(1, len(entries) // 20)
+            lines.append(f"    Source: {rl_log_path}  "
+                         f"({len(entries)} entries, sampled every {sample_every})")
+            lines.append(f"    {'Episode':<10}  WinRate%")
+            lines.append("    " + "-" * 24)
+            for i in range(0, len(entries), sample_every):
+                e  = entries[i]
+                ep = e.get('episode', i)
+                wr = _safe_float(e.get('win_rate', e.get('wr'))) * 100
+                lines.append(f"    {ep:<10}  {wr:8.2f}%")
+            last = entries[-1]
+            ep   = last.get('episode', len(entries) - 1)
+            wr   = _safe_float(last.get('win_rate', last.get('wr'))) * 100
+            lines.append(f"    {ep:<10}  {wr:8.2f}%  (final)")
+    else:
+        lines.append("    [training_log.json not found — "
+                     "searched rl_agent/models/, models/, simulation/]")
+
+    # ------------------------------------------------------------------ EXP 11
+    _section(lines, "EXP 11 — Knowledge Advantage (Cohen's d)")
+    d11 = LD('exp11_knowledge_advantage.json')
+    if d11:
+        cd = d11.get('cohens_d_info_vs_light', {})
+        _subsection(lines, "Fig: knowledge_advantage  (Cohen's d per agent)")
+        lines.append(f"    {'Agent':<18}  Cohen_d   Interpretation")
+        lines.append("    " + "-" * 52)
+        for a in sorted(cd):
+            dv     = _safe_float(cd[a])
+            interp = ('large'        if abs(dv) >= 0.80 else
+                      'medium-large' if abs(dv) >= 0.65 else
+                      'medium'       if abs(dv) >= 0.50 else
+                      'small'        if abs(dv) >= 0.20 else
+                      'negligible')
+            lines.append(f"    {a:<18}  {dv:8.3f}   {interp}")
+    else:
+        lines.append("    [exp11_knowledge_advantage.json not found]")
+
+    # ------------------------------------------------------------------ EXP 12
+    _section(lines, "EXP 12 — All-Variant Tournament")
+    d12 = LD('exp12_all_variant_tournament.json')
+    if d12:
+        rankings    = d12['rankings']
+        agent_names = d12.get('agent_names',
+                              ['Random', 'Aggressive', 'Defensive', 'Balanced'])
+
+        _subsection(lines, "Fig: tournament_heatmap  /  Tab: tournament_rankings")
+        lines.append("    " + "{:<22}".format("Variant") +
+                     "".join(f"  {a:<12}" for a in agent_names))
+        lines.append("    " + "-" * (22 + len(agent_names) * 14))
+        for vn in sorted(rankings):
+            row = f"    {vn:<22}"
+            for a in agent_names:
+                wr = _safe_float(rankings[vn].get(a, 0)) * 100
+                row += f"  {wr:10.1f}%"
+            lines.append(row)
+
+        _subsection(lines, "Fig: tournament_ranking  (mean win rate across all variants)")
+        mean_wrs = {nm: np.mean([_safe_float(rankings[vn].get(nm, 0))
+                                 for vn in rankings])
+                    for nm in agent_names}
+        lines.append(f"    {'Agent':<18}  Mean_WinRate%")
+        lines.append("    " + "-" * 34)
+        for a in sorted(mean_wrs, key=lambda x: -mean_wrs[x]):
+            lines.append(f"    {a:<18}  {mean_wrs[a]*100:12.2f}%")
+    else:
+        lines.append("    [exp12_all_variant_tournament.json not found]")
+
+    # ------------------------------------------------------------------ EXP 13
+    _section(lines, "EXP 13 — Parametric Sweep")
+    d13 = LD('exp13_parametric_sweep.json')
+    if d13:
+        groups = d13['groups']
+        NP     = 4
+
+        for gname in sorted(groups):
+            _subsection(lines, f"Group: {gname}  (positional win rates + agent win rates)")
+            grp  = groups[gname]
+            keys = sorted(grp.keys())
+
+            lines.append("    " + "{:<24}".format("Config") +
+                         "".join(f"  Seat{s+1:>2}" for s in range(NP)) +
+                         "  Gini    MeanTurns")
+            lines.append("    " + "-" * (24 + NP * 8 + 18))
+            for k in keys:
+                pu = _pos_unpack(grp[k])
+                gl = _safe_float(grp[k].get('gl', {}).get('mean'))
+                seats_str = "".join(
+                    f"  {_seat(pu['seats'], s)['win_rate']*100:6.2f}%"
+                    for s in range(NP))
+                lines.append(f"    {k:<24}{seats_str}  {pu['gini']:.4f}  {gl:8.2f}")
+
+            agents = sorted(grp[keys[0]].get('ag', {}).keys()) if keys else []
+            if agents:
+                lines.append("")
+                lines.append("    " + "{:<24}".format("Config") +
+                             "".join(f"  {a:<12}" for a in agents))
+                lines.append("    " + "-" * (24 + len(agents) * 14))
+                for k in keys:
+                    ag  = grp[k].get('ag', {})
+                    row = f"    {k:<24}"
+                    for a in agents:
+                        wr = _safe_float(ag.get(a, {}).get('win_rate')) * 100
+                        row += f"  {wr:10.2f}%"
+                    lines.append(row)
+    else:
+        lines.append("    [exp13_parametric_sweep.json not found]")
+
+    # ------------------------------------------------------------------ EXP 14
+    _section(lines, "EXP 14 — End Condition (Points vs Rounds)")
+    d14 = LD('exp14_end_condition.json')
+    if d14:
+        _subsection(lines, "Fig: end_condition_lengths  (violin: game lengths by end-condition type)")
+        for ctype, key in [('Points-based', 'pts_based'),
+                           ('Rounds-based', 'round_based')]:
+            data = d14.get(key, {})
+            all_lengths = [l for v in data.values()
+                           for l in v['gl'].get('lengths', [])]
+            if all_lengths:
+                arr = np.array(all_lengths, dtype=float)
+                lines.append(f"    {ctype}:  N={len(arr)}  "
+                             f"mean={arr.mean():.2f}  median={np.median(arr):.2f}  "
+                             f"std={arr.std():.2f}  "
+                             f"min={arr.min():.0f}  max={arr.max():.0f}")
+                for vn in sorted(data):
+                    gl  = data[vn]['gl']
+                    lns = gl.get('lengths', [])
+                    if lns:
+                        a = np.array(lns, dtype=float)
+                        lines.append(f"      {vn:<22}  mean={a.mean():.2f}  "
+                                     f"median={np.median(a):.2f}  std={a.std():.2f}")
+            else:
+                lines.append(f"    {ctype}: no length data found")
+    else:
+        lines.append("    [exp14_end_condition.json not found]")
+
+    # ------------------------------------------------------------------ EXP 16
+    _section(lines, "EXP 16 — MCTS Benchmark")
+    d16 = LD('exp16_mcts_benchmark.json')
+    if d16:
+        mcts_names   = d16.get('mcts_variants', [])
+        bench_vars   = d16.get('bench_variants', [])
+        h2h_data     = d16.get('head_to_head', {})
+        timing_sum   = d16.get('timing_summary', {})
+        mean_wr_vs_h = d16.get('mean_wr_vs_heuristics', {})
+
+        iter_map   = {'MCTS-SuperFast': 100,  'MCTS-Fast': 500,
+                      'MCTS-Standard': 1000,  'MCTS-Deep': 2000}
+        tlimit_map = {'MCTS-SuperFast': 0.10, 'MCTS-Fast': 0.20,
+                      'MCTS-Standard': 0.80,  'MCTS-Deep': 2.00}
+
+        _subsection(lines,
+            "Tab: mcts_benchmark  /  Fig: mcts_time_per_move + mcts_tradeoff_scatter")
+        lines.append(f"    {'Variant':<18}  Iters  TLimit  "
+                     f"MeanMove_ms  P95_ms  StdMove_ms  WinRate_vs_H%")
+        lines.append("    " + "-" * 78)
+        for mn in mcts_names:
+            it  = iter_map.get(mn, '?')
+            tl  = tlimit_map.get(mn, '?')
+            ts  = timing_sum.get(mn, {})
+            mm  = _safe_float(ts.get('mean_ms'))
+            p95 = _safe_float(ts.get('p95_ms'))
+            std = _safe_float(ts.get('std_ms'))
+            wr  = _safe_float(mean_wr_vs_h.get(mn)) * 100
+            lines.append(f"    {mn:<18}  {it:<5}  {tl:<6}  "
+                         f"{mm:11.1f}  {p95:7.1f}  {std:10.1f}  {wr:12.1f}%")
+
+        _subsection(lines, "Fig: mcts_h2h_heatmap  (win rates % by MCTS config x variant)")
+        lines.append("    " + "{:<18}".format("MCTS_config") +
+                     "".join(f"  {v:<14}" for v in bench_vars))
+        lines.append("    " + "-" * (18 + len(bench_vars) * 16))
+        for mn in mcts_names:
+            row = f"    {mn:<18}"
+            for vn in bench_vars:
+                ag = h2h_data.get(vn, {}).get('ag', {})
+                wr = _safe_float(ag.get(mn, {}).get('win_rate')) * 100
+                row += f"  {wr:12.1f}%  "
+            lines.append(row)
+    else:
+        lines.append("    [exp16_mcts_benchmark.json not found]")
+
+    # ------------------------------------------------------------------ WRITE
+    lines.append("")
+    lines.append("=" * 72)
+    lines.append("  END OF DATA DUMP")
+    lines.append("=" * 72)
+
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines))
+    print(f'\n  ✓ Data dump written -> {out_path}')
+    return out_path
+
+
+# ===========================================================================
+# MAIN  (patched to call dump_data at the end)
+# ===========================================================================
 
 if __name__ == '__main__':
     main()

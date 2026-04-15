@@ -75,6 +75,11 @@ class TestDeck:
         for rank in Deck.RANKS:
             assert rank in Deck.RANK_INDEX
 
+    def test_rank_index_is_contiguous(self):
+        """RANK_INDEX values must be 0-9 with no gaps (adjacency logic depends on this)."""
+        indices = sorted(Deck.RANK_INDEX.values())
+        assert indices == list(range(10))
+
     def test_shuffle_changes_order(self):
         import random
         deck = Deck()
@@ -176,7 +181,11 @@ class TestBoard:
         assert empty_board.is_adjacent(Card(Suit.OROS, 10))  # 10 is next after 7
 
     def test_is_adjacent_empty_suit_returns_false(self, empty_board):
+        """Board.is_adjacent returns False on an empty suit.
+        The special case that a 5 can be played on an empty suit is handled
+        in PlayCard.is_legal, not in Board.is_adjacent."""
         assert not empty_board.is_adjacent(Card(Suit.OROS, 5))
+        assert not empty_board.is_adjacent(Card(Suit.OROS, 3))
 
     def test_get_min_max_empty(self, empty_board):
         lo, hi = empty_board.get_min_max(Suit.OROS)
@@ -201,18 +210,92 @@ class TestBoard:
 # ══════════════════════════════════════════════
 
 class TestDiceState:
+    """
+    DiceState.revealed_hands is a Dict[int, int] (viewer → target).
+    It is initialised as an empty dict and cleared back to an empty dict
+    by DiceState.clear().  Helper methods reveal_to(), can_see_hand(),
+    get_revealed_target(), and clear_viewer() all operate on this dict.
+    """
+
     def test_defaults(self):
         ds = DiceState()
         assert not ds.wild_active
         assert not ds.double_play_active
-        assert ds.revealed_hands is None
+        # revealed_hands defaults to an empty dict, not None
+        assert ds.revealed_hands == {}
+        assert isinstance(ds.revealed_hands, dict)
 
-    def test_clear(self):
-        ds = DiceState(wild_active=True, double_play_active=True, revealed_hands=2)
+    def test_reveal_to_stores_mapping(self):
+        ds = DiceState()
+        ds.reveal_to(viewer=0, target=2)
+        assert ds.revealed_hands[0] == 2
+
+    def test_can_see_hand_true(self):
+        ds = DiceState()
+        ds.reveal_to(viewer=1, target=3)
+        assert ds.can_see_hand(viewer=1, target=3)
+
+    def test_can_see_hand_false_wrong_target(self):
+        ds = DiceState()
+        ds.reveal_to(viewer=1, target=3)
+        assert not ds.can_see_hand(viewer=1, target=2)
+
+    def test_can_see_hand_false_no_reveal(self):
+        ds = DiceState()
+        assert not ds.can_see_hand(viewer=0, target=1)
+
+    def test_get_revealed_target_present(self):
+        ds = DiceState()
+        ds.reveal_to(viewer=2, target=0)
+        assert ds.get_revealed_target(viewer=2) == 0
+
+    def test_get_revealed_target_absent(self):
+        ds = DiceState()
+        assert ds.get_revealed_target(viewer=0) is None
+
+    def test_clear_viewer_removes_entry(self):
+        ds = DiceState()
+        ds.reveal_to(0, 1)
+        ds.reveal_to(2, 3)
+        ds.clear_viewer(0)
+        assert ds.get_revealed_target(0) is None
+        # Other entries unaffected
+        assert ds.get_revealed_target(2) == 3
+
+    def test_clear_viewer_noop_when_absent(self):
+        """clear_viewer on a non-existent key must not raise."""
+        ds = DiceState()
+        ds.clear_viewer(99)  # should not raise
+
+    def test_clear_resets_all_effects(self):
+        ds = DiceState()
+        ds.wild_active = True
+        ds.double_play_active = True
+        ds.reveal_to(0, 1)
+        ds.reveal_to(2, 3)
         ds.clear()
         assert not ds.wild_active
         assert not ds.double_play_active
-        assert ds.revealed_hands is None
+        assert ds.revealed_hands == {}
+
+    def test_multiple_reveals_independent(self):
+        """REVEAL_HAND makes multiple opponents see the roller's hand."""
+        ds = DiceState()
+        # Simulate BadDiceEffect.REVEAL_HAND for player 1: opponents 0, 2, 3 can see p1
+        for viewer in [0, 2, 3]:
+            ds.reveal_to(viewer=viewer, target=1)
+        assert ds.can_see_hand(0, 1)
+        assert ds.can_see_hand(2, 1)
+        assert ds.can_see_hand(3, 1)
+        assert not ds.can_see_hand(1, 0)
+
+    def test_info_reveal_good_effect(self):
+        """INFO_REVEAL: roller p sees opponent u with fewest cards."""
+        ds = DiceState()
+        ds.reveal_to(viewer=0, target=3)   # player 0 sees player 3
+        assert ds.get_revealed_target(0) == 3
+        # Other viewers unaffected
+        assert ds.get_revealed_target(1) is None
 
 
 # ══════════════════════════════════════════════
@@ -245,6 +328,16 @@ class TestVariantConfig:
         assert vc.dice_good_effect == GoodDiceEffect.DOUBLE_PLAY
         assert vc.dice_bad_effect == BadDiceEffect.NEGATIVE_POINTS
 
+    def test_all_good_effects_constructable(self):
+        for eff in GoodDiceEffect:
+            vc = VariantConfig(dice_good_effect=eff)
+            assert vc.dice_good_effect == eff
+
+    def test_all_bad_effects_constructable(self):
+        for eff in BadDiceEffect:
+            vc = VariantConfig(dice_bad_effect=eff)
+            assert vc.dice_bad_effect == eff
+
 
 # ══════════════════════════════════════════════
 # GameState
@@ -269,6 +362,12 @@ class TestGameState:
         copy = fresh_state.copy()
         copy.board.add_card(Card(Suit.OROS, 5))
         assert not fresh_state.board.has_rank(Suit.OROS, 5)
+
+    def test_copy_dice_state_independence(self, fresh_state):
+        """Copying state must deep-copy revealed_hands dict."""
+        copy = fresh_state.copy()
+        copy.dice_state.reveal_to(0, 1)
+        assert fresh_state.dice_state.get_revealed_target(0) is None
 
     def test_get_player_with_fewest_cards(self, fresh_state):
         # Give player 2 fewer cards

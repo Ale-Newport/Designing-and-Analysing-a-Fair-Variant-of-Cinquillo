@@ -18,7 +18,11 @@ from agents.base_agents import (
     create_aggressive_heuristic, create_balanced_heuristic,
 )
 from agents.mcts_agent import MCTSAgentSuperFast
-from agents.rl_agent import RLAgent, StateEncoder
+from agents.rl_agent import RLAgent, StateEncoder, ImprovedQNetwork
+
+# Expected feature-vector length for a 4-player game.
+# Any change to StateEncoder.encode must update this constant.
+EXPECTED_STATE_DIM = 209
 
 
 # ══════════════════════════════════════════════
@@ -156,7 +160,7 @@ class TestAgentTournaments:
         assert len(winning_seats) > 1   # more than one seat wins
 
     def test_heuristic_beats_random_more_often(self):
-        """Over 10 games, a HeuristicAgent at seat 0 should win more than random."""
+        """Over 20 games, a HeuristicAgent at seat 0 should win more than random."""
         # Seat 0 = heuristic, others = random
         agents = [HeuristicAgent()] + [RandomAgent() for _ in range(3)]
         winners = _run_n_games(agents, n=20, seed=200)
@@ -179,32 +183,84 @@ class TestAgentTournaments:
 
 class TestStateEncoderConsistency:
 
-    def test_encoder_length_same_across_variants(self):
-        lengths = []
+    def test_encoder_length_is_209(self, fresh_state):
+        """Feature vector must be exactly 209 dimensions for a 4-player game."""
+        vec = StateEncoder.encode(fresh_state, 0)
+        assert len(vec) == EXPECTED_STATE_DIM, (
+            f"Expected {EXPECTED_STATE_DIM} features, got {len(vec)}. "
+            "Update EXPECTED_STATE_DIM if StateEncoder was intentionally changed."
+        )
+
+    def test_encoder_length_same_across_all_variant_combos(self):
+        """Feature vector length must be invariant across all VariantConfig combinations."""
+        lengths = set()
         for scoring in ScoringMode:
             for good_eff in GoodDiceEffect:
-                variant = VariantConfig(
-                    scoring_mode=scoring,
-                    dice_good_effect=good_eff,
-                )
-                state = Rules.initialize_game(4, variant)
-                vec = StateEncoder.encode(state, 0)
-                lengths.append(len(vec))
-        assert len(set(lengths)) == 1, "Feature vector length varies across variants"
+                for bad_eff in BadDiceEffect:
+                    variant = VariantConfig(
+                        scoring_mode=scoring,
+                        dice_good_effect=good_eff,
+                        dice_bad_effect=bad_eff,
+                    )
+                    state = Rules.initialize_game(4, variant)
+                    vec = StateEncoder.encode(state, 0)
+                    lengths.add(len(vec))
+        assert len(lengths) == 1, (
+            f"Feature vector length varies across variants: {lengths}"
+        )
+
+    def test_encoder_length_invariant_across_seats(self, fresh_state):
+        """All four seat perspectives must produce the same-length vector."""
+        lengths = {len(StateEncoder.encode(fresh_state, p)) for p in range(4)}
+        assert len(lengths) == 1
 
     def test_encoder_output_stable_same_state(self, fresh_state):
         v1 = StateEncoder.encode(fresh_state, 0)
         v2 = StateEncoder.encode(fresh_state, 0)
         assert np.array_equal(v1, v2)
 
-    def test_rl_network_accepts_encoder_output(self, fresh_state):
-        agent = RLAgent()
+    def test_encoder_output_float32(self, fresh_state):
         vec = StateEncoder.encode(fresh_state, 0)
-        # Initialise network manually
-        from agents.rl_agent import ImprovedQNetwork
+        assert vec.dtype == np.float32
+
+    def test_rl_network_accepts_encoder_output(self, fresh_state):
+        """ImprovedQNetwork with default args must accept the encoder's 209-dim vector
+        and return a 42-dim Q-value array (one per action slot)."""
+        vec = StateEncoder.encode(fresh_state, 0)
+        # Default network: state_dim → 256 → 128 → 42
         net = ImprovedQNetwork(state_dim=len(vec))
+        q_vals, activations = net.forward(vec)
+        # Q-values: one per action (42 total: 40 card slots + RollDice + Pass)
+        assert q_vals.shape == (42,), (
+            f"Expected Q-value vector of shape (42,), got {q_vals.shape}. "
+            "The network action_dim must match RLAgent._ROLL_IDX/PASS_IDX."
+        )
+        # Activation list: input + 2 hidden layers = 3 entries
+        assert len(activations) == 3
+
+    def test_rl_network_custom_hidden_dims(self, fresh_state):
+        """Network must work with non-default hidden layer sizes."""
+        vec = StateEncoder.encode(fresh_state, 0)
+        net = ImprovedQNetwork(state_dim=len(vec), action_dim=42,
+                               hidden_dims=[128, 64])
         q_vals, _ = net.forward(vec)
-        assert q_vals.shape == (3,)
+        assert q_vals.shape == (42,)
+
+    def test_rl_network_target_sync(self, fresh_state):
+        """After sync_target, online and target forward passes must agree."""
+        vec = StateEncoder.encode(fresh_state, 0)
+        net = ImprovedQNetwork(state_dim=len(vec))
+        net.sync_target()
+        online_q, _  = net.forward(vec, use_target=False)
+        target_q, _  = net.forward(vec, use_target=True)
+        assert np.allclose(online_q, target_q)
+
+    def test_info_reveal_changes_encoder_output(self, fresh_state):
+        """Activating an INFO_REVEAL should change the feature vector."""
+        v_before = StateEncoder.encode(fresh_state, 0)
+        fresh_state.dice_state.reveal_to(viewer=0, target=1)
+        v_after = StateEncoder.encode(fresh_state, 0)
+        assert not np.array_equal(v_before, v_after)
 
 
 # ══════════════════════════════════════════════
@@ -240,6 +296,12 @@ class TestStateCopyInvariants:
         # The two result states must differ (different cards played)
         assert s1.board.suit_cards != s2.board.suit_cards or \
                [p.hand for p in s1.players] != [p.hand for p in s2.players]
+
+    def test_copy_dice_state_is_deep(self, fresh_state):
+        """Mutating revealed_hands on a copy must not affect the original."""
+        copy = fresh_state.copy()
+        copy.dice_state.reveal_to(0, 1)
+        assert fresh_state.dice_state.get_revealed_target(0) is None
 
 
 # ══════════════════════════════════════════════

@@ -1,6 +1,6 @@
 """
-Core entities for Cinquillo 2.0 game.
-Defines Card, Deck, Player, Board, and GameState.
+Core entities for Cinquillo 2.0 game
+Defines Card, Deck, Player, Board, and GameState
 """
 from dataclasses import dataclass, field
 from enum import Enum
@@ -9,7 +9,7 @@ import random
 
 
 class Suit(Enum):
-    """Spanish deck suits."""
+    """Spanish deck suits"""
     OROS = "Oros"
     COPAS = "Copas"
     ESPADAS = "Espadas"
@@ -18,9 +18,9 @@ class Suit(Enum):
 
 @dataclass(frozen=True)
 class Card:
-    """Immutable card with suit and rank."""
+    """Immutable card with suit and rank"""
     suit: Suit
-    rank: int  # 1-7, 10-12
+    rank: int
     
     def __str__(self):
         return f"{self.rank}{self.suit.value[0]}"
@@ -30,10 +30,10 @@ class Card:
 
 
 class Deck:
-    """40-card Spanish deck."""
+    """40-card Spanish deck"""
     RANKS = [1, 2, 3, 4, 5, 6, 7, 10, 11, 12]
     
-    # Rank index mapping for adjacency checks
+    # rank index mapping for adjacency checks
     RANK_INDEX = {rank: idx for idx, rank in enumerate(RANKS)}
     
     def __init__(self):
@@ -44,13 +44,13 @@ class Deck:
         ]
     
     def shuffle(self):
-        """Shuffle the deck in place."""
+        """shuffle the deck in place"""
         random.shuffle(self.cards)
     
     def deal(self, num_players: int) -> List[List[Card]]:
         """
-        Deal cards evenly to num_players.
-        Returns list of hands, one per player.
+        deal cards evenly to num_players
+        returns list of hands, one per player
         """
         cards_per_player = len(self.cards) // num_players
         hands = []
@@ -63,56 +63,53 @@ class Deck:
 
 @dataclass
 class Player:
-    """Player state."""
+    """player state"""
     index: int
     hand: List[Card] = field(default_factory=list)
     round_score: int = 0
     match_score: int = 0
     
     def has_card(self, card: Card) -> bool:
-        """Check if player has a specific card."""
+        """check if player has a specific card"""
         return card in self.hand
     
     def remove_card(self, card: Card):
-        """Remove a card from hand."""
+        """remove a card from hand"""
         self.hand.remove(card)
     
     def add_card(self, card: Card):
-        """Add a card to hand."""
+        """add a card to hand"""
         self.hand.append(card)
     
     def hand_size(self) -> int:
-        """Get number of cards in hand."""
+        """get number of cards in hand"""
         return len(self.hand)
 
 
 @dataclass
 class Board:
     """
-    Game board tracking played cards per suit.
-    For each suit, tracks set of ranks currently present.
+    Game board tracking played cards per suit
     """
     suit_cards: Dict[Suit, Set[int]] = field(default_factory=lambda: {
         suit: set() for suit in Suit
     })
     
     def is_empty(self, suit: Suit) -> bool:
-        """Check if no cards of a suit are on the board."""
+        """check if no cards of a suit are on the board"""
         return len(self.suit_cards[suit]) == 0
     
     def has_rank(self, suit: Suit, rank: int) -> bool:
-        """Check if a specific rank is on the board."""
+        """check if a specific rank is on the board"""
         return rank in self.suit_cards[suit]
     
     def add_card(self, card: Card):
-        """Add a card to the board."""
+        """add a card to the board"""
         self.suit_cards[card.suit].add(card.rank)
     
     def is_adjacent(self, card: Card) -> bool:
         """
-        Check if card is adjacent to any existing card of same suit.
-        A card is adjacent if it's next to a placed card in the rank sequence.
-        Handles Spanish deck where 7 is followed by 10 (not 8).
+        check if card is adjacent to any existing card of same suit
         """
         if self.is_empty(card.suit):
             return False
@@ -124,20 +121,20 @@ class Board:
         
         for rank in self.suit_cards[card.suit]:
             placed_idx = rank_index[rank]
-            # Check if indices differ by exactly 1 (adjacent in sequence)
+            #check if indices differ by exactly 1 (adjacent in sequence)
             if abs(card_idx - placed_idx) == 1:
                 return True
         return False
     
     def get_min_max(self, suit: Suit) -> Tuple[Optional[int], Optional[int]]:
-        """Get min and max ranks for a suit (returns None if empty)."""
+        """get min and max ranks for a suit (returns None if empty)"""
         if self.is_empty(suit):
             return None, None
         ranks = self.suit_cards[suit]
         return min(ranks), max(ranks)
     
     def copy(self) -> 'Board':
-        """Create a deep copy of the board."""
+        """create a deep copy of the board"""
         new_board = Board()
         new_board.suit_cards = {
             suit: ranks.copy() 
@@ -147,83 +144,63 @@ class Board:
 
 
 class GoodDiceEffect(Enum):
-    """Good dice outcomes."""
-    WILD = "wild"           # Play any card ignoring adjacency rules
-    DOUBLE_PLAY = "double_play"  # Play two individually-legal cards this turn
-    GIVE_CARD = "give_card"      # Give one card to the next player in turn order
-    INFO_REVEAL = "info_reveal"  # See the full hand of the opponent with fewest cards
+    """good dice outcomes"""
+    WILD = "wild"
+    DOUBLE_PLAY = "double_play"
+    GIVE_CARD = "give_card"
+    INFO_REVEAL = "info_reveal"
 
 
 class BadDiceEffect(Enum):
     """Bad dice outcomes."""
-    TAKE_CARDS = "take_cards"         # Receive cards from the opponent with most cards
-    NEGATIVE_POINTS = "negative_points"  # Lose points immediately
-    FORCED_PASS = "forced_pass"       # Turn ends immediately (involuntary, no penalty)
-    REVEAL_HAND = "reveal_hand"       # All opponents can see your full hand
+    TAKE_CARDS = "take_cards"
+    NEGATIVE_POINTS = "negative_points"
+    FORCED_PASS = "forced_pass"
+    REVEAL_HAND = "reveal_hand"
 
 
 class ScoringMode(Enum):
     """Scoring system modes."""
-    WINNER_TAKES_ALL = "winner_takes_all"  # Winner gets sum of all opponent cards
-    DOUBLE_PENALTY = "double_penalty"      # Winner gains, losers lose per card
+    WINNER_TAKES_ALL = "winner_takes_all"
+    DOUBLE_PENALTY = "double_penalty"
 
 
 class MatchEndMode(Enum):
     """Match ending conditions."""
-    TARGET_SCORE = "target_score"   # First to reach score target
-    FIXED_ROUNDS = "fixed_rounds"   # Play fixed number of rounds
+    TARGET_SCORE = "target_score"
+    FIXED_ROUNDS = "fixed_rounds"
 
 
 @dataclass
 class DiceState:
     """
-    Transient state from dice effects.
-    
-    Information reveal tracking:
-      revealed_hands maps viewer_index -> target_index.
-      
-      For GoodDiceEffect.INFO_REVEAL: the rolling player p gains visibility
-        of u (the opponent with fewest cards):
-            revealed_hands[p] = u
-      
-      For BadDiceEffect.REVEAL_HAND: all opponents gain visibility of p's hand:
-            revealed_hands[opp_0] = p
-            revealed_hands[opp_1] = p
-            ...
-      
-      Reveal entries for a viewer are cleared when that viewer's turn ends
-      (i.e. when they play a card and the turn advances, or when they pass).
+    Transient state from dice effects
     """
     wild_active: bool = False
     double_play_active: bool = False
-    # Maps viewer_index -> target_index (whose hand viewer can see)
     revealed_hands: Dict[int, int] = field(default_factory=dict)
-    
-    # ------------------------------------------------------------------
-    # Helper accessors
-    # ------------------------------------------------------------------
+
 
     def can_see_hand(self, viewer: int, target: int) -> bool:
-        """Return True if viewer can currently see target's full hand."""
+        """return True if viewer can currently see target's full hand"""
         return self.revealed_hands.get(viewer) == target
 
     def reveal_to(self, viewer: int, target: int):
-        """Grant viewer full visibility of target's hand."""
+        """grant viewer full visibility of target's hand"""
         self.revealed_hands[viewer] = target
 
     def get_revealed_target(self, viewer: int) -> Optional[int]:
         """
-        Return the player index whose hand is currently visible to viewer,
-        or None if no reveal is active for this viewer.
+        return the player index whose hand is currently visible to viewer or None if no reveal is active for this viewer
         """
         return self.revealed_hands.get(viewer)
 
     def clear_viewer(self, viewer: int):
-        """Remove the active reveal entry for a specific viewer."""
+        """remove the active reveal entry for a specific viewer"""
         self.revealed_hands.pop(viewer, None)
 
     def clear(self):
-        """Clear all one-shot effects (called on pass / end of action)."""
+        """clear all one-shot effects (called on pass / end of action)"""
         self.wild_active = False
         self.double_play_active = False
         self.revealed_hands = {}
@@ -231,7 +208,7 @@ class DiceState:
 
 @dataclass
 class VariantConfig:
-    """Configuration for rule variants - flexible system for experimentation."""
+    """configuration for rule variants"""
     
     # === DICE SYSTEM (2 outcomes: good/bad) ===
     dice_good_probability: float = 0.5  # Probability of good outcome
@@ -251,7 +228,7 @@ class VariantConfig:
     fixed_rounds_count: int = 5  # For FIXED_ROUNDS
     
     def get_target_score(self, num_players: int) -> int:
-        """Calculate target score based on number of players."""
+        """calculate target score based on number of players"""
         return num_players * self.target_score_multiplier
     
     def __str__(self):
@@ -262,7 +239,7 @@ class VariantConfig:
 
 @dataclass
 class GameState:
-    """Complete game state."""
+    """complete game state"""
     board: Board
     players: List[Player]
     current_player: int
@@ -274,15 +251,15 @@ class GameState:
     winner: Optional[int] = None
     
     def get_current_player(self) -> Player:
-        """Get the current player object."""
+        """get the current player object"""
         return self.players[self.current_player]
     
     def next_player_index(self) -> int:
-        """Get index of next player in turn order."""
+        """get index of next player in turn order"""
         return (self.current_player + 1) % len(self.players)
     
     def get_player_with_fewest_cards(self, exclude: Optional[int] = None) -> int:
-        """Get index of player with fewest cards (excluding specified player)."""
+        """get index of player with fewest cards (excluding specified player)"""
         candidates = [
             (i, p.hand_size()) 
             for i, p in enumerate(self.players)
@@ -291,7 +268,7 @@ class GameState:
         return min(candidates, key=lambda x: x[1])[0]
     
     def get_player_with_most_cards(self, exclude: Optional[int] = None) -> int:
-        """Get index of player with most cards (excluding specified player)."""
+        """get index of player with most cards (excluding specified player)"""
         candidates = [
             (i, p.hand_size()) 
             for i, p in enumerate(self.players)
@@ -300,7 +277,7 @@ class GameState:
         return max(candidates, key=lambda x: x[1])[0]
     
     def copy(self) -> 'GameState':
-        """Create a deep copy of the game state."""
+        """create a deep copy of the game state"""
         new_players = [
             Player(
                 index=p.index,
@@ -314,14 +291,14 @@ class GameState:
         new_dice_state = DiceState(
             wild_active=self.dice_state.wild_active,
             double_play_active=self.dice_state.double_play_active,
-            revealed_hands=dict(self.dice_state.revealed_hands)  # shallow copy is fine
+            revealed_hands=dict(self.dice_state.revealed_hands) # shallow copy is fine
         )
         
         return GameState(
             board=self.board.copy(),
             players=new_players,
             current_player=self.current_player,
-            variant=self.variant,  # Config is immutable, can share
+            variant=self.variant, # config is immutable, can share
             dice_state=new_dice_state,
             round_number=self.round_number,
             turn_number=self.turn_number,

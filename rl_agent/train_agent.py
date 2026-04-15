@@ -1,27 +1,24 @@
 """
-RL agent training  (fast, full-coverage variant pool).
+RL agent training  (fast, full-coverage variant pool)
 
 Designed to complete in <= 30 minutes while exposing the agent to every
-combination of dice effect and scoring mode in the Cinquillo 2.0 variant table.
+combination of dice effect and scoring mode in the Cinquillo 2.0 variant table
 
 Speed budget (4-player games, 3 heuristic opponents)
 ------------------------------------------------------
   Stage 0   Ep    0-400   Randoms x 3            base only    2 updates/ep
   Stage 1   Ep  400-1500  1 Heuristic + Randoms   base only    3 updates/ep
   Stage 2   Ep 1500-5000  Full heuristics         all variants  5 updates/ep
-  Estimated wall time at ~4 it/s average: ~21 min
-  Evaluation overhead (4 evals x 40 games): ~3 min
-  Total: ~24 min
 
 Variant coverage
 -----------------
   Every combination of Good x Bad effect (4x4 = 16 configs) with realistic
-  parameters drawn from the named-variant table.
+  parameters drawn from the named-variant table
 
 Output
 ------
-  models/rl_agent.pkl        -- overwritten whenever a new best is reached
-  models/training_log.json   -- metrics after each evaluation
+  models/rl_agent.pkl -- overwritten whenever a new best is reached
+  models/training_log.json -- metrics after each evaluation
 """
 
 import sys
@@ -37,7 +34,6 @@ from typing import List, Optional
 import numpy as np
 from tqdm import tqdm
 
-# Save inside the script's own directory so path is CWD-independent
 _SCRIPT_DIR = Path(os.path.abspath(__file__)).parent
 _DEFAULT_SAVE_DIR = str(_SCRIPT_DIR / 'models')
 
@@ -61,10 +57,7 @@ except ImportError:
     _NAMED_HEURISTICS = False
 
 
-# ---------------------------------------------------------------------------
 # Compact VariantConfig factory
-# ---------------------------------------------------------------------------
-
 def _vc(good, bad, p=0.5, pen=1, ppc=1, scoring=None, rounds=5,
         target_mult=10, take_n=2, neg_pts=1):
     if scoring is None:
@@ -94,16 +87,11 @@ WTA = ScoringMode.WINNER_TAKES_ALL
 DP  = ScoringMode.DOUBLE_PENALTY
 
 
-# ---------------------------------------------------------------------------
 # Variant pools
-# ---------------------------------------------------------------------------
-
 BASE_ONLY: List[VariantConfig] = [
     _vc(W, TC, p=0.50, pen=1, scoring=WTA, rounds=5, take_n=2),
 ]
 
-# Stage 2 pool: base variants + DoublePlay family so the mechanic is
-# introduced before full-difficulty stage 3
 STAGE2_VARIANTS: List[VariantConfig] = [
     _vc(W,   TC,  p=0.50, pen=1, scoring=WTA, rounds=5, take_n=2),  # Baseline
     _vc(W,   TC,  p=0.50, pen=1, scoring=WTA, rounds=5, take_n=2),  # extra weight
@@ -111,8 +99,6 @@ STAGE2_VARIANTS: List[VariantConfig] = [
     _vc(DP2, TC,  p=0.50, pen=0, scoring=WTA, rounds=5, take_n=2),  # Double Edge
 ]
 
-# 16 configs — one per (good_effect x bad_effect) combination.
-# Parameters sampled from the named-variant table in the UI.
 ALL_VARIANTS: List[VariantConfig] = [
     # WILD x *
     _vc(W,   TC,  p=0.50, pen=1, scoring=WTA, rounds=5, take_n=2),   # Baseline
@@ -136,15 +122,12 @@ ALL_VARIANTS: List[VariantConfig] = [
     _vc(GIV, RH,  p=0.40, pen=2, scoring=DP,  rounds=5),              # Ghost Hand
 ]
 
-NUM_EVAL_GAMES = 200   # per checkpoint — fast but representative
+NUM_EVAL_GAMES = 200 # per checkpoint fast but representative
 
 
-# ---------------------------------------------------------------------------
 # Opponents
-# ---------------------------------------------------------------------------
-
 def make_heuristic_agents() -> List[Agent]:
-    """Exactly 3 opponents so all games are 4-player (feature dim = 202)."""
+    """Exactly 3 opponents so all games are 4-player (feature dim = 202)"""
     if _NAMED_HEURISTICS:
         return [
             create_aggressive_heuristic(),
@@ -167,10 +150,7 @@ def make_heuristic_agents() -> List[Agent]:
     ]
 
 
-# ---------------------------------------------------------------------------
 # Game / eval helpers
-# ---------------------------------------------------------------------------
-
 def play_single_game(agents: List[Agent], variant: VariantConfig) -> dict:
     state = Rules.initialize_game(len(agents), variant)
     turns = 0
@@ -198,7 +178,7 @@ def evaluate_agent(
     num_games: int = NUM_EVAL_GAMES,
     variants: Optional[List[VariantConfig]] = None,
 ) -> dict:
-    """Evaluate with epsilon = 0, cycling RL through all 4 seats."""
+    """Evaluate with epsilon = 0, cycling RL through all 4 seats"""
     if variants is None:
         variants = ALL_VARIANTS
     orig_eps      = agent.epsilon
@@ -251,10 +231,7 @@ class TrainingLogger:
             json.dump(self.stats, f, indent=2)
 
 
-# ---------------------------------------------------------------------------
 # Training loop
-# ---------------------------------------------------------------------------
-
 def train_rl_agent(
     rl_agent: RLAgent,
     opponents: List[Agent],
@@ -265,7 +242,7 @@ def train_rl_agent(
     curriculum_learning: bool = True,
 ) -> dict:
     """
-    Three-stage curriculum designed for <= 30 min wall time.
+    Three-stage curriculum designed for <= 30 min wall time
 
     Stage 0  (0-400):    Randoms,              base only,   2 updates/ep
     Stage 1  (400-1500): 1 Heuristic + Randoms, base only,  3 updates/ep
@@ -298,7 +275,7 @@ def train_rl_agent(
         stages = [(0, num_episodes, opponents, ALL_VARIANTS, 5)]
 
     print("=" * 62)
-    print("RL AGENT TRAINING  v6  (fast full-coverage)")
+    print("RL AGENT TRAINING  (fast full-coverage)")
     print("=" * 62)
     print(f"  Agent:         {rl_agent.name}")
     print(f"  Episodes:      {num_episodes}")
@@ -321,7 +298,7 @@ def train_rl_agent(
 
     for episode in tqdm(range(num_episodes), desc="Training"):
 
-        # Resolve curriculum stage
+        #resolve curriculum stage
         cur_opps, cur_variants, cur_updates = opponents, ALL_VARIANTS, 5
         for s, e, opps, vpool, nu in stages:
             if s <= episode < e:
@@ -335,12 +312,6 @@ def train_rl_agent(
         n          = len(rotated)
 
         state  = Rules.initialize_game(n, variant)
-        # RL agent's actual game-player index depends on which seat it occupies.
-        # With all_agents=[RL, o1, o2, o3] and position=p:
-        #   rotated = all_agents[p:] + all_agents[:p]
-        #   RL ends up at index (n - p) % n in the rotated list.
-        # Without this, rl_pos=0 wrongly treats the first opponent as RL for p>0,
-        # causing 75% of training experiences to be stored from opponents' perspectives.
         rl_pos = (n - position) % n
 
         prev_rl_state        = None   # s_t (RL turn state)
@@ -351,23 +322,6 @@ def train_rl_agent(
         scores_computed      = False
         turns                = 0
 
-        # ── Experience storage strategy ───────────────────────────────────
-        #
-        # We store (s_t, a_t, r_t, s_{t+1}) where:
-        #   s_t      = state at RL turn t              (current_player == rl_pos)
-        #   a_t      = RL's chosen action
-        #   r_t      = IMMEDIATE reward: only the direct effect of a_t
-        #              (computed from s_t → apply_move(s_t, a_t))
-        #              This avoids penalising RL for opponent TAKE_CARDS effects.
-        #   s_{t+1}  = state at RL turn t+1            (current_player == rl_pos)
-        #              Used for Q-bootstrap — semantically correct.
-        #
-        # The reward for what happened between turns (opponents reducing/growing
-        # RL's hand) is NOT added — it would misattribute opponent effects to
-        # RL's action.  The terminal bonus (win/loss) is captured when the game
-        # ends and RL either played the winning card (immediate) or we detect
-        # an opponent win.
-
         while not Rules.is_terminal(state) and turns < 500:
             cur_player = state.current_player
             legal = Rules.get_legal_moves(state)
@@ -375,10 +329,7 @@ def train_rl_agent(
                 break
 
             if cur_player == rl_pos:
-                # ── RL's turn ──────────────────────────────────────────────
                 action = rotated[rl_pos].choose_move(state, legal)
-
-                # Immediate next state (before any opponent moves)
                 next_imm = Rules.apply_move(state, action)
                 done     = next_imm.game_over
 
@@ -389,11 +340,7 @@ def train_rl_agent(
                     imm_reward = rl_agent.compute_reward(state, action, next_imm, rl_pos)
                     rl_agent.store_experience(state, action, imm_reward, next_imm, True)
                 else:
-                    # Compute immediate reward now; store when we reach RL turn t+1
-                    # so we have the correct bootstrap state (s_{t+1}).
                     imm_reward = rl_agent.compute_reward(state, action, next_imm, rl_pos)
-
-                    # Flush the PREVIOUS RL transition now that s_{t+1} = state
                     if prev_rl_state is not None:
                         rl_agent.store_experience(
                             prev_rl_state, prev_rl_action,
@@ -406,12 +353,10 @@ def train_rl_agent(
 
                 state = next_imm
             else:
-                # ── Opponent's turn ─────────────────────────────────────────
                 action = rotated[cur_player].choose_move(state, legal)
                 next_s = Rules.apply_move(state, action)
 
                 if next_s.game_over and not rl_won:
-                    # Opponent won — give RL a terminal loss signal
                     Rules.compute_round_scores(next_s)
                     scores_computed = True
                     if prev_rl_state is not None:
@@ -431,37 +376,30 @@ def train_rl_agent(
 
         rl_agent.end_episode()
 
-        # Flush replay buffer at stage-3 transition so stale experiences
-        # from random/partial-heuristic stages don't contaminate gradients.
         if episode == 3000:
             rl_agent.replay_buffer._buffer.clear()
             rl_agent.replay_buffer._priorities.clear()
             rl_agent.replay_buffer._pos = 0
             rl_agent.replay_buffer._max_priority = 1.0
 
-        # Once the buffer is full (ep ~10000), cut updates to 2/ep.
-        # More updates on a full buffer just causes over-fitting to PER
-        # high-priority samples and drives the post-peak WR decline.
         effective_updates = cur_updates if episode < 10000 else 2
 
         if len(rl_agent.replay_buffer) >= batch_size:
             for _ in range(effective_updates):
                 rl_agent.train_from_replay(batch_size)
 
-        # Epsilon decay
+        # epsilon decay
         if episode > 0 and episode % 50 == 0:
             if episode < 1500:
                 rl_agent.decay_epsilon(decay_rate=0.990, min_epsilon=0.15)
             else:
                 rl_agent.decay_epsilon(decay_rate=0.993, min_epsilon=0.05)
 
-        # Learning rate schedule — reduce on stage transitions to prevent
-        # late-stage oscillation once the agent is close to convergence.
-        if episode == 3000:    # entering stage 3 (full difficulty)
+        if episode == 3000: # entering stage 3
             rl_agent.learning_rate = max(rl_agent.learning_rate * 0.5, 5e-5)
-        elif episode == 8000:   # buffer filling, reduce oscillation
+        elif episode == 8000: # buffer filling, reduce oscillation
             rl_agent.learning_rate = max(rl_agent.learning_rate * 0.5, 1e-5)
-        elif episode == 15000:  # late fine-tuning on stable policy
+        elif episode == 15000: # late fine-tuning on stable policy
             rl_agent.learning_rate = max(rl_agent.learning_rate * 0.5, 5e-6)
 
         # Evaluation checkpoint
@@ -514,30 +452,25 @@ def train_rl_agent(
     return logger.stats
 
 
-# ---------------------------------------------------------------------------
 # Entry point
-# ---------------------------------------------------------------------------
-
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
         description="Train RL agent — all variant configs in <= 30 min"
     )
-    parser.add_argument("--episodes",      type=int,   default=25000)
-    parser.add_argument("--eval-interval", type=int,   default=1000)
-    parser.add_argument("--epsilon",       type=float, default=0.65)
-    parser.add_argument("--lr",            type=float, default=1e-4)
-    parser.add_argument("--save-dir",      type=str,   default=_DEFAULT_SAVE_DIR,
-                        help="Output directory  [default: <script_dir>/models]")
-    parser.add_argument("--load",          type=str,   default=None,
-                        help="Warm-start from an existing .pkl file")
-    parser.add_argument("--batch-size",    type=int,   default=64)
+    parser.add_argument("--episodes", type=int, default=25000)
+    parser.add_argument("--eval-interval", type=int, default=1000)
+    parser.add_argument("--epsilon", type=float, default=0.65)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--save-dir", type=str, default=_DEFAULT_SAVE_DIR, help="Output directory  [default: <script_dir>/models]")
+    parser.add_argument("--load", type=str, default=None, help="Warm-start from an existing .pkl file")
+    parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--no-curriculum", action="store_true")
     args = parser.parse_args()
 
     rl_agent = RLAgent(
-        name="RL-Agent-v6",
+        name="RL",
         epsilon=args.epsilon,
         learning_rate=args.lr,
         discount_factor=0.95,
@@ -548,7 +481,7 @@ if __name__ == "__main__":
         rl_agent.load_weights(args.load)
         print(f"Warm-started from {args.load}")
 
-    opponents = make_heuristic_agents()   # exactly 3 -> 4-player games, dim=202
+    opponents = make_heuristic_agents()
 
     train_rl_agent(
         rl_agent=rl_agent,

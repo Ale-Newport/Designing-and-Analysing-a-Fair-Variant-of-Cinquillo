@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 """
-==========================================================================
-Cinquillo 2.0  —  Simulation Runner  (run_simulations.py)
-==========================================================================
-Runs ALL experiments and saves raw results + aggregate statistics to disk.
-A separate script (visualise_results.py) reads these files to produce
-every figure, table, and LaTeX fragment.
+Simulation Runner
 
-Place at:  simulation/run_simulations.py
-Run from PROJECT ROOT:
+Runs ALL experiments and saves raw results
     python simulation/run_simulations.py
     python simulation/run_simulations.py --quick          # ~500 games / exp
     python simulation/run_simulations.py --medium         # ~2 000 games / exp
@@ -19,12 +13,10 @@ Run from PROJECT ROOT:
 Outputs (all under output/data/):
     experiments/exp_<N>_<name>.json   aggregated statistics
     raw/exp_<N>_<name>_<variant>.csv  per-game result rows
-==========================================================================
 """
 
-# ---------------------------------------------------------------------------
+
 # Path fix — must come before project imports
-# ---------------------------------------------------------------------------
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -40,9 +32,7 @@ from typing import List, Dict, Tuple, Optional, Any
 import numpy as np
 warnings.filterwarnings('ignore')
 
-# ---------------------------------------------------------------------------
 # Project imports
-# ---------------------------------------------------------------------------
 from game.entities import (
     VariantConfig, GoodDiceEffect, BadDiceEffect,
     ScoringMode, MatchEndMode,
@@ -91,9 +81,9 @@ except ImportError:
     HAS_SCIPY = False
 
 
-# ===========================================================================
+  
 # TERMINAL HELPERS
-# ===========================================================================
+  
 
 def _header(title: str, n: int = 0, total: int = 0):
     bar = '━' * 72
@@ -106,9 +96,9 @@ def _info(msg): print(f'    {msg}')
 def _warn(msg): print(f'  ⚠  {msg}')
 
 
-# ===========================================================================
+  
 # VARIANT FACTORY
-# ===========================================================================
+  
 
 W   = GoodDiceEffect.WILD
 DP  = GoodDiceEffect.DOUBLE_PLAY
@@ -172,9 +162,9 @@ def _v(dice_prob: float = 0.5,
     )
 
 
-# ===========================================================================
+  
 # ALL 33 NAMED VARIANTS
-# ===========================================================================
+  
 
 def make_baseline():        return _v()
 def make_blitz():           return _v(pass_pen=2, rounds=1)
@@ -262,9 +252,9 @@ SCORING_KEY     = ['Baseline', 'Score Doubler', 'Combo Rush', 'Heavy Toll',
 ROUND_VARIANTS  = ['Blitz', 'Sprint', 'Baseline', 'Marathon', 'Endurance', 'Slow Burn']
 
 
-# ===========================================================================
+  
 # 10 PARAMETRIC SWEEP GROUPS
-# ===========================================================================
+  
 
 def _pgood_ladder():
     """p(good) ladder: 0.0 → 1.0 in steps of 0.1, Wild/Take-2, WTA, 5R, pen=1."""
@@ -337,9 +327,9 @@ VARIANT_GROUPS: Dict[str, Dict[str, VariantConfig]] = {
 }
 
 
-# ===========================================================================
+  
 # GAME RUNNER
-# ===========================================================================
+  
 
 def run_batch(agents: List[Agent],
               variant: VariantConfig,
@@ -381,9 +371,9 @@ def run_batch(agents: List[Agent],
     return results
 
 
-# ===========================================================================
+  
 # TIMING HELPERS  (used by EXP 16)
-# ===========================================================================
+  
 
 def _instrument_timing(agent) -> None:
     """Monkey-patch agent.choose_move to record wall-clock time per call."""
@@ -427,9 +417,9 @@ def _reset_move_times(agent) -> None:
     agent._move_times = []
 
 
-# ===========================================================================
+  
 # STATISTICS
-# ===========================================================================
+  
 
 def binomial_ci(k, n, z=1.96):
     if n == 0:
@@ -477,9 +467,9 @@ def kruskal_wallis(groups: Dict[str, list]) -> dict:
     return {'H': float(H), 'p_value': float(p)}
 
 
-# ===========================================================================
+  
 # ANALYSIS FUNCTIONS
-# ===========================================================================
+  
 
 def analyse_agents(results: List[GameResult]) -> Dict[str, dict]:
     wins, total, scores = defaultdict(int), defaultdict(int), defaultdict(list)
@@ -627,9 +617,9 @@ def head_to_head(results: List[GameResult], names: List[str]) -> dict:
     return {'names': names, 'matrix': mat.tolist()}
 
 
-# ===========================================================================
+  
 # SERIALISATION
-# ===========================================================================
+  
 
 def results_to_rows(results: List[GameResult]) -> List[dict]:
     rows = []
@@ -671,9 +661,9 @@ def save_json(data: dict, path: str):
     _ok(path)
 
 
-# ===========================================================================
+  
 # EXPERIMENT RUNNER HELPERS
-# ===========================================================================
+  
 
 def _run_named_variants(agents, variant_names, N, NP, ddir, exp_id, tag,
                         save_raw=True) -> dict:
@@ -698,14 +688,14 @@ def _run_named_variants(agents, variant_names, N, NP, ddir, exp_id, tag,
     return out
 
 
-# ===========================================================================
+  
 # MAIN
-# ===========================================================================
+  
 
 def main():
     t_start = time.time()
 
-    # ── CLI ──────────────────────────────────────────────────────────────────
+    # CLI
     parser = argparse.ArgumentParser(description='Cinquillo 2.0 — Simulation Runner')
     parser.add_argument('--quick',     action='store_true', help='500 games/batch')
     parser.add_argument('--medium',    action='store_true', help='2000 games/batch')
@@ -725,14 +715,14 @@ def main():
     all_exps = list(range(1, 17))
     run_exp  = set(args.exp) if args.exp else set(all_exps)
 
-    # ── Directories ──────────────────────────────────────────────────────────
+    # Directories
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ddir_raw  = os.path.join(root, 'output', 'data', 'raw')
     ddir_exp  = os.path.join(root, 'output', 'data', 'experiments')
     for d in (ddir_raw, ddir_exp):
         os.makedirs(d, exist_ok=True)
 
-    # ── Agent pool ───────────────────────────────────────────────────────────
+    # Agent pool
     agents_core = [
         RandomAgent('Random'),
         create_aggressive_heuristic(),
@@ -776,9 +766,7 @@ def main():
     _info(f'Experiments: {sorted(run_exp)}')
     _info(f'All 3 variants loaded  |  10 sweep groups loaded')
 
-    # ======================================================================
     # EXP 1 — FIRST-PLAYER ADVANTAGE (all 33 variants)
-    # ======================================================================
     if 1 in run_exp:
         _header('First-Player Advantage', 1, 16)
         data = {}
@@ -788,9 +776,9 @@ def main():
         save_json({'N': N, 'NP': NP, 'variants': data},
                   os.path.join(ddir_exp, 'exp1_first_player.json'))
 
-    # ======================================================================
+     
     # EXP 2 — DICE USAGE vs WIN RATE (Dice Probability sweep)
-    # ======================================================================
+     
     if 2 in run_exp:
         _header('Dice Usage vs Win Rate', 2, 16)
         data = {}
@@ -804,9 +792,9 @@ def main():
         save_json({'NS': NS, 'NP': NP, 'sweep': data},
                   os.path.join(ddir_exp, 'exp2_dice_usage.json'))
 
-    # ======================================================================
+     
     # EXP 3 — LUCK vs SKILL (variance decomposition across luck-range variants)
-    # ======================================================================
+     
     if 3 in run_exp:
         _header('Luck vs Skill', 3, 16)
         agent_names = [a.name for a in agents_core]
@@ -820,9 +808,9 @@ def main():
                    'all_vd': all_vd, 'agent_names': agent_names},
                   os.path.join(ddir_exp, 'exp3_luck_skill.json'))
 
-    # ======================================================================
+     
     # EXP 4 — COMEBACK / SNOWBALL
-    # ======================================================================
+     
     if 4 in run_exp:
         _header('Comeback / Snowball Study', 4, 16)
         test_vns = ['Baseline', 'Heavy Toll', 'Lucky Draw', 'Endurance',
@@ -831,9 +819,9 @@ def main():
         save_json({'N': N, 'NP': NP, 'variants': data},
                   os.path.join(ddir_exp, 'exp4_comeback.json'))
 
-    # ======================================================================
+     
     # EXP 5 — AGENT WIN RATES (all agents, key variants)
-    # ======================================================================
+     
     if 5 in run_exp:
         _header('Agent Win Rates', 5, 16)
         key_vns = ['Baseline', 'Combo Rush', "Fortune's Wheel", 'Lucky Draw',
@@ -867,9 +855,9 @@ def main():
                    'variants': data},
                   os.path.join(ddir_exp, 'exp5_agent_winrates.json'))
 
-    # ======================================================================
+     
     # EXP 6 — NUMBER OF PLAYERS STUDY
-    # ======================================================================
+     
     if 6 in run_exp:
         _header('Number of Players Study', 6, 16)
         test_vns = ['Baseline', 'Pure Strategy', 'Lucky Draw', 'Combo Rush']
@@ -887,9 +875,9 @@ def main():
         save_json({'NS': NS, 'variants': test_vns, 'nplayer_data': data},
                   os.path.join(ddir_exp, 'exp6_nplayers.json'))
 
-    # ======================================================================
+     
     # EXP 7 — VARIANT FAIRNESS & BALANCE (all 33 variants)
-    # ======================================================================
+     
     if 7 in run_exp:
         _header('Variant Fairness & Balance', 7, 16)
         fairness = {}
@@ -915,9 +903,9 @@ def main():
                    'group_fairness': group_fairness},
                   os.path.join(ddir_exp, 'exp7_fairness.json'))
 
-    # ======================================================================
+     
     # EXP 8 — INFORMATION REVEAL ANALYSIS (new)
-    # ======================================================================
+     
     if 8 in run_exp:
         _header('Information Reveal Analysis', 8, 16)
         # Compare INFO_REVEAL vs REVEAL_HAND dynamics
@@ -956,9 +944,9 @@ def main():
             'info_benefit': info_benefit,   # per-agent breakdown by variant
         }, os.path.join(ddir_exp, 'exp8_information.json'))
 
-    # ======================================================================
+     
     # EXP 9 — DOUBLE PLAY DEEP DIVE (new)
-    # ======================================================================
+     
     if 9 in run_exp:
         _header('Double Play Deep Dive', 9, 16)
         data = _run_named_variants(agents_core, DOUBLE_PLAY_VARIANTS,
@@ -991,9 +979,9 @@ def main():
             'dp_penalty_sweep': dp_penalty_sweep,
         }, os.path.join(ddir_exp, 'exp9_double_play.json'))
 
-    # ======================================================================
+     
     # EXP 10 — FORCED PASS DYNAMICS (new)
-    # ======================================================================
+     
     if 10 in run_exp:
         _header('Forced Pass Dynamics', 10, 16)
         data = _run_named_variants(agents_core, FORCED_PASS_VARIANTS,
@@ -1029,9 +1017,9 @@ def main():
             'comparison': comparison,
         }, os.path.join(ddir_exp, 'exp10_forced_pass.json'))
 
-    # ======================================================================
+     
     # EXP 11 — KNOWLEDGE ADVANTAGE (new — information asymmetry experiment)
-    # ======================================================================
+     
     if 11 in run_exp:
         _header('Knowledge Advantage Experiment', 11, 16)
         # Run Balanced heuristic (which uses info when available) vs others
@@ -1087,9 +1075,9 @@ def main():
             'cohens_d_info_vs_light': cohens_info,
         }, os.path.join(ddir_exp, 'exp11_knowledge_advantage.json'))
 
-    # ======================================================================
+     
     # EXP 12 — ALL-VARIANT TOURNAMENT (agent rankings across all 33 variants)
-    # ======================================================================
+     
     if 12 in run_exp:
         _header('All-Variant Tournament', 12, 16)
         ranking = {}
@@ -1103,9 +1091,9 @@ def main():
                    'rankings': ranking},
                   os.path.join(ddir_exp, 'exp12_all_variant_tournament.json'))
 
-    # ======================================================================
+     
     # EXP 13 — PARAMETRIC SWEEP ANALYSIS (all 10 groups)
-    # ======================================================================
+     
     if 13 in run_exp:
         _header('Parametric Sweep Analysis', 13, 16)
         all_groups = {}
@@ -1130,9 +1118,9 @@ def main():
                    'kruskal_wallis': kw_results},
                   os.path.join(ddir_exp, 'exp13_parametric_sweep.json'))
 
-    # ======================================================================
+     
     # EXP 14 — TARGET SCORE vs FIXED ROUNDS COMPARISON (new)
-    # ======================================================================
+     
     if 14 in run_exp:
         _header('Target Score vs Fixed Rounds Comparison', 14, 16)
         # Compare game dynamics between the two end-condition modes
@@ -1167,9 +1155,9 @@ def main():
             'round_agg_gini':_agg_gini(round_data),
         }, os.path.join(ddir_exp, 'exp14_end_condition.json'))
 
-    # ======================================================================
+     
     # EXP 15 — TRANSFER EFFECT & HAND SIZE DYNAMICS (new)
-    # ======================================================================
+     
     if 15 in run_exp:
         _header('Transfer Effect & Hand Size Dynamics', 15, 16)
         data = _run_named_variants(agents_core, TRANSFER_VARIANTS,
@@ -1191,9 +1179,9 @@ def main():
             'transfer_sweep': transfer_sweep,
         }, os.path.join(ddir_exp, 'exp15_transfer.json'))
 
-    # ======================================================================
+     
     # EXP 16 — MCTS BENCHMARK  (win rate + time per move)
-    # ======================================================================
+     
     if 16 in run_exp and not args.skip_mcts:
         _header('MCTS Benchmark — Win Rate & Time per Move', 16, 16)
 
@@ -1222,10 +1210,10 @@ def main():
             _sub(f'Games per batch: {N_b}  |  Benchmark variants: {bench_variants}')
             _sub(f'MCTS configs: {[c[0] for c in mcts_configs]}')
 
-            # ------------------------------------------------------------------
+             
             # Helper: run one timed batch and return (results, timing_dict).
             # Agents that are NOT patched (heuristics) are ignored for timing.
-            # ------------------------------------------------------------------
+             
             def _timed_batch(agents_list, vcfg, n_games, desc=''):
                 timed_agents = [a for a in agents_list
                                 if any(a.name.startswith(tag)
@@ -1243,9 +1231,9 @@ def main():
                     _restore_timing(a)
                 return res, timing
 
-            # ------------------------------------------------------------------
+             
             # A. HEAD-TO-HEAD: all four MCTS in one 4-player game
-            # ------------------------------------------------------------------
+             
             _sub('Sub-exp A: MCTS head-to-head tournament (all 4 variants)')
             mcts_agents_h2h = [cls(name) for name, cls in mcts_configs]
 
@@ -1266,9 +1254,9 @@ def main():
                     f'exp16_h2h_{vn.replace(" ","_").replace("/","_").replace("&","and")}.csv')
                 save_csv(res, csv_path)
 
-            # ------------------------------------------------------------------
+             
             # B. MCTS vs HEURISTICS: each MCTS paired with all three heuristics
-            # ------------------------------------------------------------------
+             
             _sub('Sub-exp B: each MCTS variant vs Aggressive/Defensive/Balanced')
             vs_heuristics_data = {}
             timing_summary_accum: Dict[str, List[float]] = {
@@ -1301,9 +1289,9 @@ def main():
                         f'_{vn.replace(" ","_").replace("/","_").replace("&","and")}.csv')
                     save_csv(res, csv_path)
 
-            # ------------------------------------------------------------------
+             
             # C. Cross-variant timing summary (pooled over all benchmark variants)
-            # ------------------------------------------------------------------
+             
             timing_summary = {}
             for mcts_name, ts_ms in timing_summary_accum.items():
                 if ts_ms:
@@ -1344,7 +1332,7 @@ def main():
                 'mean_wr_vs_heuristics': mean_wr_vs_heuristics,
             }, os.path.join(ddir_exp, 'exp16_mcts_benchmark.json'))
 
-    # ── Summary ──────────────────────────────────────────────────────────────
+    # Summary
     elapsed = time.time() - t_start
     print(f'\n{"━"*72}')
     print(f'  SIMULATIONS COMPLETE  —  elapsed: {elapsed/60:.1f} min')

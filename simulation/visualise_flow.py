@@ -58,9 +58,9 @@ from agents.mcts_agent import (
 from agents.rl_agent import RLAgent
 
 
-# ============================================================================
+  
 # Variant registry
-# ============================================================================
+  
 
 @dataclass(frozen=True)
 class VariantSpec:
@@ -210,9 +210,9 @@ def build_variant(spec: VariantSpec) -> VariantConfig:
     return VariantConfig(**kwargs)
 
 
-# ============================================================================
+  
 # Agents
-# ============================================================================
+  
 
 AGENT_BUILDERS = {
     "mcts-deep": lambda: MCTSAgentDeep(name="MCTS-Deep"),
@@ -244,9 +244,9 @@ def build_agents(agent_keys: Sequence[str]) -> List[Agent]:
     return agents
 
 
-# ============================================================================
+  
 # Visualizer
-# ============================================================================
+  
 
 class LaTeXGridVisualizer:
     """
@@ -288,9 +288,9 @@ class LaTeXGridVisualizer:
         self.file_handle: Optional[TextIO] = None
         self.turn_states: List[dict] = []
 
-    # ------------------------------------------------------------------
+      
     # Public
-    # ------------------------------------------------------------------
+      
 
     def play_and_visualize(self) -> None:
         state = Rules.initialize_game(len(self.agents), self.variant)
@@ -339,9 +339,9 @@ class LaTeXGridVisualizer:
 
         self._generate_latex()
 
-    # ------------------------------------------------------------------
+      
     # IO
-    # ------------------------------------------------------------------
+      
 
     def _write(self, text: str = "") -> None:
         if self.file_handle:
@@ -364,9 +364,9 @@ class LaTeXGridVisualizer:
             if self.file_handle:
                 self.file_handle.close()
 
-    # ------------------------------------------------------------------
+      
     # Main document
-    # ------------------------------------------------------------------
+      
 
     def _write_document(self) -> None:
         self._write(r"\begin{document}")
@@ -685,9 +685,9 @@ class LaTeXGridVisualizer:
     def _write_postamble(self) -> None:
         pass
 
-    # ------------------------------------------------------------------
+      
     # Layout
-    # ------------------------------------------------------------------
+      
 
     def _group_into_visual_rounds(self, turn_data_list: List[dict]) -> List[List[dict]]:
         """
@@ -815,9 +815,9 @@ class LaTeXGridVisualizer:
 
         return placements, round_infos
 
-    # ------------------------------------------------------------------
+      
     # TikZ writing
-    # ------------------------------------------------------------------
+      
 
     def _paginate(self, round_infos: List[dict], budget: float = 40) -> List[List[dict]]:
         """Split round_infos into pages so each page's content height ≤ budget cm."""
@@ -1072,9 +1072,9 @@ class LaTeXGridVisualizer:
 
         self._write("")
 
-    # ------------------------------------------------------------------
+      
     # Final state
-    # ------------------------------------------------------------------
+      
 
     def _write_final_state(self, state: GameState) -> None:
         winner_text = "None"
@@ -1100,9 +1100,9 @@ class LaTeXGridVisualizer:
         self._write(r"\end{center}")
 
 
-# ============================================================================
+  
 # CLI
-# ============================================================================
+  
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(

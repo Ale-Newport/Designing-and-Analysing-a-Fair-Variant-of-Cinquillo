@@ -84,13 +84,13 @@ def new_match():
         'agents': create_agents(num_players, human_player, agent_types),
         'agent_types': agent_types,
         'game_history': [],
-        'round_turns': [],          # per-round turn recording for LaTeX export
+        'round_turns': [], # per-round turn recording for LaTeX export
         'debug_mode': debug_mode,
         'starting_player': starting_player,
         'current_round_starter': starting_player
     }
     
-    # Start first round
+    #start first round
     round_state = start_new_round(match_id)
     
     return jsonify({
@@ -118,11 +118,11 @@ def make_move():
     state = active_games[match_id]
     match_state = match_states[match_id]
     
-    # Validate it's human player's turn
+    # calidate it's human player's turn
     if state.current_player != match_state['human_player']:
         return jsonify({'error': 'Not your turn'}), 400
     
-    # Create move object
+    # create move object
     move = None
     if move_type == 'play_card':
         suit = Suit[move_data['suit'].upper()]
@@ -142,15 +142,15 @@ def make_move():
     if not move or not move.is_legal(state, state.current_player):
         return jsonify({'error': 'Illegal move'}), 400
     
-    # Capture pre-move data for turn recording
+    # capture pre-move data for turn recording
     pre_state = state
     legal_moves_recorded = Rules.get_legal_moves(state)
 
-    # Apply move
+    # apply move
     state = move.apply(state)
     active_games[match_id] = state
 
-    # Record this turn
+    # record this turn
     match_state['round_turns'].append({
         "turn": len(match_state['round_turns']) + 1,
         "state": pre_state,
@@ -160,7 +160,7 @@ def make_move():
         "legal_moves": legal_moves_recorded,
     })
     
-    # Check if round is over
+    # check if round is over
     if state.game_over:
         return handle_round_end(match_id, state)
     
@@ -185,7 +185,7 @@ def bot_move():
     if state.current_player == match_state['human_player']:
         return jsonify({'error': 'Human player turn'}), 400
     
-    # Make one bot move
+    # make one bot move
     agent = match_state['agents'][state.current_player]
     legal_moves = Rules.get_legal_moves(state)
     
@@ -193,15 +193,15 @@ def bot_move():
     if legal_moves:
         move = agent.choose_move(state, legal_moves)
         
-        # Capture pre-move state for turn recording
+        # capture pre-move state for turn recording
         pre_state = state
 
-        # In debug mode, capture detailed move information
+        # in debug mode, capture detailed move information
         if match_state['debug_mode']:
             agent_type = match_state['agent_types'].get(str(state.current_player), 'Unknown')
             move_description = format_move_for_debug(move, state.current_player)
             
-            # Annotate if agent is using revealed hand info
+            # annotate if agent is using revealed hand info
             revealed_target = state.dice_state.get_revealed_target(state.current_player)
             if revealed_target is not None:
                 move_description += f" [👁 saw P{revealed_target + 1}'s hand]"
@@ -218,7 +218,7 @@ def bot_move():
         state = move.apply(state)
         active_games[match_id] = state
 
-        # Record this turn
+        # record this turn
         match_state['round_turns'].append({
             "turn": len(match_state['round_turns']) + 1,
             "state": pre_state,
@@ -271,7 +271,7 @@ def create_agents(num_players: int, human_player: int, agent_types: Dict = None)
     agents = []
     for i in range(num_players):
         if i == human_player:
-            agents.append(None)  # Human player
+            agents.append(None) # Human player
         else:
             agent_type = agent_types.get(str(i), 'balanced')
             
@@ -319,10 +319,10 @@ def create_agents(num_players: int, human_player: int, agent_types: Dict = None)
 
 
 def start_new_round(match_id: str) -> GameState:
-    """Start a new round in the match."""
+    """Start a new round in the match"""
     match_state = match_states[match_id]
     match_state['round_number'] += 1
-    match_state['round_turns'] = []   # reset turn recording for this round
+    match_state['round_turns'] = [] #reset turn recording for this round
     
     state = Rules.initialize_game(
         match_state['num_players'],
@@ -348,7 +348,7 @@ def start_new_round(match_id: str) -> GameState:
 
 
 def process_bot_turns(match_id: str, state: GameState) -> GameState:
-    """Process all bot turns until human player's turn or game over."""
+    """Process all bot turns until human player's turn or game over"""
     match_state = match_states[match_id]
     
     max_iterations = 100
@@ -372,7 +372,7 @@ def process_bot_turns(match_id: str, state: GameState) -> GameState:
 
 
 def handle_round_end(match_id: str, state: GameState):
-    """Handle end of round and check if match is over."""
+    """Handle end of round and check if match is over"""
     match_state = match_states[match_id]
     
     Rules.compute_round_scores(state)
@@ -380,7 +380,7 @@ def handle_round_end(match_id: str, state: GameState):
     for i, player in enumerate(state.players):
         match_state['match_scores'][i] = player.match_score
 
-    # Append the final-state sentinel so LaTeX generation can read end scores
+    # append the final-state sentinel so LaTeX generation can read end scores
     match_state['round_turns'].append({
         "turn": len(match_state['round_turns']) + 1,
         "state": state,
@@ -419,7 +419,7 @@ def handle_round_end(match_id: str, state: GameState):
 
 @app.route('/api/next_round', methods=['POST'])
 def next_round():
-    """Start the next round after current round ends."""
+    """Start the next round after current round ends"""
     data = request.json
     match_id = data['match_id']
     
@@ -436,7 +436,7 @@ def next_round():
 
 
 def get_match_info(match_id: str) -> Dict:
-    """Get current match information."""
+    """Get current match information"""
     match_state = match_states[match_id]
     variant = match_state['variant']
     
@@ -450,16 +450,7 @@ def get_match_info(match_id: str) -> Dict:
 
 def serialize_state(state: GameState, match_id: str = None) -> Dict:
     """
-    Convert GameState to JSON-serialisable dict.
-
-    Information-reveal fields added:
-      dice_state.revealed_hands   — dict mapping viewer_index (str) → target_index
-                                    (all active reveal relationships)
-      visible_hands               — dict mapping player_index (str) → card list,
-                                    containing only hands visible to the human player
-      opponents_see_my_hand       — bool: True if any opponent currently has
-                                    visibility of the human player's hand
-                                    (BadDiceEffect.REVEAL_HAND was rolled)
+    Convert GameState to JSON-serialisable dict
     """
     debug_mode = False
     human_player = 0
@@ -480,20 +471,15 @@ def serialize_state(state: GameState, match_id: str = None) -> Dict:
             player_data['debug_visible'] = True
         players_data.append(player_data)
     
-    # -----------------------------------------------------------------------
-    # Build visible_hands: cards that the human player is entitled to see.
-    # 1. Always include their own hand (index == human_player).
-    # 2. Include any opponent hand revealed by INFO_REVEAL (good dice effect).
-    # -----------------------------------------------------------------------
     visible_hands: Dict[str, list] = {}
     
-    # Own hand always visible
+    # own hand always visible
     visible_hands[str(human_player)] = [
         {'suit': c.suit.value, 'rank': c.rank}
         for c in state.players[human_player].hand
     ]
     
-    # Opponent hand revealed to human player (INFO_REVEAL good effect)
+    # opponent hand revealed to human player (INFO_REVEAL good effect)
     revealed_target = state.dice_state.get_revealed_target(human_player)
     if revealed_target is not None:
         visible_hands[str(revealed_target)] = [
@@ -501,22 +487,12 @@ def serialize_state(state: GameState, match_id: str = None) -> Dict:
             for c in state.players[revealed_target].hand
         ]
     
-    # -----------------------------------------------------------------------
-    # Check if human player's hand is exposed to opponents.
-    # This happens when BadDiceEffect.REVEAL_HAND was rolled by another player:
-    #   revealed_hands[opp_i] == human_player  for each opponent opp_i
-    # -----------------------------------------------------------------------
     opponents_see_my_hand = any(
         state.dice_state.get_revealed_target(i) == human_player
         for i in range(len(state.players))
         if i != human_player
     )
 
-    # -----------------------------------------------------------------------
-    # Serialise the full revealed_hands dict so the frontend can display
-    # appropriate notifications for every active reveal relationship.
-    # Keys and values are converted to strings for JSON compatibility.
-    # -----------------------------------------------------------------------
     revealed_hands_serialized = {
         str(viewer): target
         for viewer, target in state.dice_state.revealed_hands.items()
@@ -536,10 +512,9 @@ def serialize_state(state: GameState, match_id: str = None) -> Dict:
         'dice_state': {
             'wild_active': state.dice_state.wild_active,
             'double_play_active': state.dice_state.double_play_active,
-            # Full reveal map (viewer_str -> target_int)
+            # full reveal map (viewer_str -> target_int)
             'revealed_hands': revealed_hands_serialized,
         },
-        # Convenience fields for the human-player view
         'visible_hands': visible_hands,
         'opponents_see_my_hand': opponents_see_my_hand,
         'debug_mode': debug_mode
@@ -548,7 +523,7 @@ def serialize_state(state: GameState, match_id: str = None) -> Dict:
 
 @app.route('/api/generate_round_latex', methods=['POST'])
 def generate_round_latex():
-    """Generate a LaTeX flow diagram for the most recently completed round."""
+    """Generate a LaTeX flow diagram for the most recently completed round"""
     data = request.json
     match_id = data.get('match_id')
 
@@ -564,13 +539,13 @@ def generate_round_latex():
     try:
         from simulation.visualise_flow import LaTeXGridVisualizer
 
-        # Build named agent list (None slots → "Human")
+        # build named agent list (None slots "Human")
         agents_list = []
         for i in range(match_state['num_players']):
             raw = match_state['agents'][i]
             agents_list.append(raw if raw is not None else SimpleAgent(name="Human"))
 
-        # Prepend the mandatory turn-0 sentinel
+        # prepend the mandatory turn-0 sentinel
         turn_states = [{
             "turn": 0,
             "state": round_turns[0]["state"].copy(),
@@ -584,7 +559,7 @@ def generate_round_latex():
 
         class _NonClosingStringIO(io.StringIO):
             def close(self):
-                # Prevent parent code from closing the buffer before we read it
+                # prevent parent code from closing the buffer before we read it
                 pass
 
         class _BufferVis(LaTeXGridVisualizer):

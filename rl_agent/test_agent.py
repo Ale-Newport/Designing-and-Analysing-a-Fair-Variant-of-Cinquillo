@@ -5,18 +5,13 @@ Loads models/rl_agent.pkl by default and runs a 5-variant tournament
 against three heuristic opponents (Aggressive, Defensive, Balanced).
 
 Variant configurations tested
-------------------------------
   V1  Baseline        Wild / Take 2        p=0.50  Pen=1  WTA   5 rounds
   V2  Combo Rush      Double Play / FPass  p=0.60  Pen=2  DP    5 rounds
   V3  Fortune's Wheel Wild / FPass         p=1.00  Pen=1  WTA   5 rounds
   V4  Lucky Draw      Wild / −1 pt         p=0.80  Pen=1  WTA   5 rounds
   V5  Open Book       Info / Exposed       p=0.50  Pen=0  WTA   8 rounds
 
-Each block cycles the RL agent through all 4 table seats so positional
-bias is cancelled.  A summary table is printed at the end.
-
 Usage
------
   python rl_agent/test_agent.py
   python rl_agent/test_agent.py --weights path/to/rl_agent.pkl
   python rl_agent/test_agent.py --games 2000
@@ -47,17 +42,11 @@ from game.entities import (
 from game.rules import Rules
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Default weights path
-# ─────────────────────────────────────────────────────────────────────────────
-
 DEFAULT_WEIGHTS = SCRIPT_DIR / "models" / "rl_agent.pkl"
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 5 variant configurations  (sampled from the full variant table)
-# ─────────────────────────────────────────────────────────────────────────────
-
+# 5 variant configurations
 VARIANTS: List[Tuple[str, VariantConfig]] = [
     (
         "V1 — Baseline  (Wild / Take 2)",
@@ -129,10 +118,7 @@ VARIANTS: List[Tuple[str, VariantConfig]] = [
 ]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Opponents
-# ─────────────────────────────────────────────────────────────────────────────
-
 def make_opponents() -> List[Agent]:
     """Aggressive + Defensive + Balanced heuristic agents."""
     return [
@@ -142,10 +128,7 @@ def make_opponents() -> List[Agent]:
     ]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Core game runner
-# ─────────────────────────────────────────────────────────────────────────────
-
 def play_one_game(agents: List[Agent], variant: VariantConfig) -> Dict:
     state = Rules.initialize_game(len(agents), variant)
     turns = 0
@@ -173,8 +156,8 @@ def run_block(
     desc: str = "",
 ) -> Dict:
     """
-    Run num_games games cycling the RL agent through all 4 seats.
-    Returns per-agent win rates, avg scores, and per-seat win rates.
+    Run num_games games cycling the RL agent through all 4 seats
+    Returns per-agent win rates, avg scores, and per-seat win rates
     """
     all_agents = [rl_agent] + opponents
     n          = len(all_agents)
@@ -182,8 +165,6 @@ def run_block(
 
     wins      = {name: 0.0 for name in names}
     score_sum = {name: 0.0 for name in names}
-    # pos_wins[p] = RL agent wins when rotation offset is p
-    # (so each entry reflects the RL win rate from a different physical seat)
     pos_wins  = [0.0] * n
     rl_name   = rl_agent.name
 
@@ -197,7 +178,7 @@ def run_block(
             score_sum[agent.name] += result['scores'][idx]
             if idx in result['winner_indices']:
                 wins[agent.name] += share
-                # Only track positional wins for the RL agent itself
+                # only track positional wins for the RL agent itself
                 if agent.name == rl_name:
                     pos_wins[pos] += share
 
@@ -211,10 +192,7 @@ def run_block(
     }
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Output formatting
-# ─────────────────────────────────────────────────────────────────────────────
-
 W = 66
 
 def print_block(v_label: str, result: Dict, rl_name: str) -> None:
@@ -254,23 +232,21 @@ def print_summary(results: Dict[str, Dict], rl_name: str) -> None:
         print(f"  {v_label[:44]:<44}  {wr:>6.1f}%  {marker}")
 
     print("  " + "-" * 54)
-    valid = [w for w in win_rates if not (w != w)]  # filter NaN
+    valid = [w for w in win_rates if not (w != w)] # filter NaN
     mean  = sum(valid) / len(valid) if valid else 0.0
     print(f"  {'Mean':<44}  {mean:>6.1f}%")
     print("=" * W)
 
     print()
     verdict = ("outperforms baseline ✓" if mean > 30
-               else "competitive — above random ✓" if mean > 25
+               else "above random" if mean > 25
                else "needs more training ✗")
-    print(f"  Result: {mean:.1f}% mean win rate  →  {verdict}")
+    print(f"  Result: {mean:.1f}% mean win rate  =>  {verdict}")
     print("=" * W)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Dimension guard
-# ─────────────────────────────────────────────────────────────────────────────
 
+# Dimension guard
 def check_dim(rl_agent: RLAgent) -> int:
     probe    = Rules.initialize_game(4, VARIANTS[0][1])
     live_dim = len(StateEncoder.encode(probe, 0))
@@ -288,21 +264,18 @@ def check_dim(rl_agent: RLAgent) -> int:
             sys.exit(1)
     else:
         print(f"  Loaded model dim:     N/A  (no weights loaded)")
-        print(f"  → Run train_agent.py first.  "
+        print(f"  Run train_agent.py first."
               f"Continuing with uninitialised network for demo.")
 
     return live_dim
 
 
-# ─────────────────────────────────────────────────────────────────────────────
 # Entry point
-# ─────────────────────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Test trained RL agent — 5 variants vs 3 heuristic opponents"
+        description="Test trained RL agent, 5 variants vs 3 heuristic opponents"
     )
     parser.add_argument(
         "--weights", type=str, default=str(DEFAULT_WEIGHTS),
