@@ -126,12 +126,7 @@ def _v(dice_prob: float = 0.5,
        pass_pen: int = 1,
        rounds: int = 5,
        pts_target: Optional[int] = None) -> VariantConfig:
-    """
-    Convenience factory.  If pts_target is set the match ends when any player
-    reaches that many total points (TARGET_SCORE mode); otherwise FIXED_ROUNDS.
-    target_score_multiplier is stored as pts_target // 4 so that 4-player
-    games hit the intended total.
-    """
+
     if pts_target is not None:
         multiplier = max(1, pts_target // 4)
         return VariantConfig(
